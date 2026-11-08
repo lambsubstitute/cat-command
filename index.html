@@ -2,7 +2,11 @@
 <html lang="en">
 <head>
 <meta charset="utf-8">
-<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="theme-color" content="#1b1f17">
 <title>Cat Command</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -102,6 +106,90 @@ button{font-family:inherit;color:inherit;cursor:pointer}
   padding:10px 34px;color:#eaf5c8}
 .big:hover{background:#4d6127}
 .card .stats{display:grid;grid-template-columns:1fr auto;gap:4px 30px;font-size:16px;margin:16px 0 22px;max-width:360px}
+
+/* ---- interface polish */
+#view,#mini{touch-action:none}
+button{touch-action:manipulation}
+.bbtn{height:80px;touch-action:manipulation;-webkit-touch-callout:none}
+.bbtn img{width:60px;height:60px;top:2px}
+.bbtn .bname{bottom:14px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;padding:0 3px}
+.bbtn .blabel{top:22px}
+#selpanel h3{display:flex;align-items:center;gap:6px}
+#selpanel .x{margin-left:auto;background:none;border:1px solid var(--edge);color:var(--dim);padding:0 7px;font-size:13px;line-height:18px}
+#selpanel .x:hover{color:var(--text);border-color:var(--edge2)}
+#selpanel .selrow{display:flex;gap:8px;align-items:flex-start}
+#selpanel .selrow > img{flex:none}
+#selpanel .seltext{flex:1;min-width:0}
+#selpanel .multi{display:flex;flex-wrap:wrap;gap:6px;align-items:center}
+#selpanel .multi .row{margin-top:0}
+#selpanel .info{white-space:nowrap;overflow:hidden;text-overflow:ellipsis;color:var(--text)}
+#touchbar{position:fixed;left:8px;bottom:8px;display:none;gap:6px;z-index:6}
+body.touch #touchbar{display:flex}
+#touchbar button{background:rgba(27,31,23,.9);border:1px solid var(--edge2);padding:10px 12px;font-family:'Black Ops One',sans-serif;font-size:12px;color:var(--text)}
+#touchbar button.on{border-color:var(--accent);color:var(--accent);background:#2e3524}
+.settings{display:flex;gap:8px;align-items:center;margin:0 0 14px;flex-wrap:wrap}
+.settings button{background:var(--panel2);border:1px solid var(--edge);padding:6px 12px;font-size:14px}
+.settings button.on{border-color:var(--accent);color:var(--accent);background:#2b3321}
+body.touch .mouseonly{display:none !important}
+
+/* phones held upright: map on top, command panel along the bottom, minimap floats */
+@media (orientation: portrait) and (max-width: 820px) {
+  #topbar{height:32px;gap:10px;padding:0 8px;font-size:14px}
+  #topbar .logo,#topbar .stat.t,#btnVoice,#btnFull{display:none}
+  #topbar button{padding:5px 9px;font-size:12px}
+  #view{top:32px;right:0;bottom:206px}
+  #side{top:auto;left:0;right:0;bottom:0;width:auto;height:206px;border-left:none;border-top:2px solid var(--edge);padding:6px 6px calc(6px + env(safe-area-inset-bottom));gap:5px}
+  #mini{position:fixed;top:38px;right:6px;width:112px;height:112px;z-index:4}
+  #powerrow{display:none}
+  #selpanel{order:-1;flex:none;height:74px;border-top:none;padding-top:0;font-size:12px}
+  #selpanel .selrow > img{width:40px;height:40px}
+  #selpanel .muted{white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+  #selpanel .hpbar{margin:2px 0 3px}
+  #selpanel .row{margin-top:4px}
+  #selpanel .row button{padding:3px 8px}
+  #selpanel h3{margin-bottom:2px}
+  #selpanel .selicons img{width:26px;height:26px}
+  #tabs button{padding:5px 0}
+  #build{display:flex;overflow-x:auto;overflow-y:hidden;gap:5px;flex:none;padding-bottom:2px}
+  .bbtn{flex:none;width:86px;height:82px}
+  #msgs{font-size:12px;top:6px;left:6px;right:124px}
+  #touchbar{bottom:214px}
+  .card{padding:16px}
+  .card h1{font-size:30px}
+  .card h2{font-size:15px;margin-bottom:10px}
+  .card .brief{font-size:14px;min-height:0}
+  .card .controls{font-size:12px}
+  .big{font-size:18px;padding:9px 22px}
+}
+/* phones held sideways: slim sidebar, minimap floats over the map */
+@media (orientation: landscape) and (max-height: 540px) {
+  #topbar{height:28px;font-size:13px;gap:12px}
+  #topbar .logo{display:none}
+  #topbar button{padding:2px 8px;font-size:12px}
+  #view{top:28px;right:212px}
+  #side{top:28px;width:212px;padding:5px 5px calc(5px + env(safe-area-inset-bottom));gap:4px}
+  #mini{position:fixed;top:34px;right:218px;width:104px;height:104px;z-index:4}
+  #powerrow{font-size:10px}
+  #tabs button{padding:3px 0;font-size:11px}
+  #build{flex:1 1 auto;min-height:0;overflow-y:auto;gap:4px}
+  .bbtn{height:64px}
+  .bbtn img{width:44px;height:44px;top:1px}
+  .bbtn .bname{font-size:10px;bottom:11px}
+  .bbtn .bcost{font-size:10px}
+  .bbtn .blabel{top:14px;font-size:12px}
+  #selpanel{flex:none;height:92px;font-size:11px;padding-top:4px}
+  #selpanel .selrow > img{width:34px;height:34px}
+  #selpanel .muted{display:none}
+  #selpanel .row button{padding:3px 6px;font-size:11px}
+  #msgs{font-size:12px;left:6px;top:6px}
+  .card{padding:12px 18px}
+  .card h1{font-size:26px}
+  .card h2{font-size:14px;margin-bottom:8px}
+  .card .brief{font-size:12px;min-height:0}
+  .card .controls{font-size:11px;margin:8px 0}
+  .card .diff{margin:8px 0}
+  .big{font-size:16px;padding:7px 20px}
+}
 </style>
 <script type="importmap">
 { "imports": { "three": "https://cdn.jsdelivr.net/npm/three@0.160.0/build/three.module.js" } }
@@ -113,7 +201,7 @@ button{font-family:inherit;color:inherit;cursor:pointer}
   <div class="logo">CAT COMMAND</div>
   <div class="stat"><b>TUNA</b><span id="credits">0</span></div>
   <div class="stat"><b>POWER</b><span id="power">0 / 0</span></div>
-  <div class="stat"><b>TIME</b><span id="clock">00:00</span></div>
+  <div class="stat t"><b>TIME</b><span id="clock">00:00</span></div>
   <div class="spacer"></div>
   <button id="btnFull">FULL SCREEN (F)</button>
   <button id="btnVoice">VOICE: ON</button>
@@ -135,6 +223,7 @@ button{font-family:inherit;color:inherit;cursor:pointer}
   <div id="selpanel"></div>
 </div>
 <div id="tooltip"></div>
+<div id="touchbar"><button id="tbBox">BOX SELECT</button><button id="tbArmy">ALL TROOPS</button></div>
 
 <div id="briefing" class="screen">
   <div class="card">
@@ -144,16 +233,10 @@ button{font-family:inherit;color:inherit;cursor:pointer}
     <div class="diff">DIFFICULTY:
       <button data-diff="0">RECRUIT</button><button data-diff="1" class="on">VETERAN</button><button data-diff="2">ELITE</button>
     </div>
-    <div class="controls">
-      <b>Left click / drag</b><span>select units (Shift adds, double-click selects all of a type)</span>
-      <b>Right click</b><span>move, attack, harvest tuna, or set a rally point (on a Mac: two-finger click, or Ctrl + click)</span>
-      <b>A, then click</b><span>attack-move: fight anything met on the way</span>
-      <b>S</b><span>stop</span>
-      <b>Two-finger swipe</b><span>scroll the map &nbsp;·&nbsp; pinch or + / − to zoom &nbsp;·&nbsp; Q / E rotate</span>
-      <b>Also scrolls</b><span>arrow keys, screen edge, Option + drag, right-drag, or drag on the minimap &nbsp;·&nbsp; F for full screen</span>
-      <b>Ctrl + 1-9, then 1-9</b><span>make and recall squads &nbsp;·&nbsp; H jumps home &nbsp;·&nbsp; Space jumps to the last alert</span>
-      <b>Sidebar</b><span>left click builds or queues, right click cancels; finished structures are placed on the map</span>
+    <div class="settings mouseonly">ORDERS ON:
+      <button data-orders="left">LEFT CLICK</button><button data-orders="right">RIGHT CLICK</button>
     </div>
+    <div class="controls"></div>
     <button class="big" id="btnStart">DEPLOY</button>
   </div>
 </div>
@@ -162,6 +245,10 @@ button{font-family:inherit;color:inherit;cursor:pointer}
   <div class="card">
     <h1>PAUSED</h1>
     <h2>THE WAR CAN WAIT. THE NAP CANNOT.</h2>
+    <div class="settings"><span class="mouseonly">ORDERS ON:</span>
+      <button class="mouseonly" data-orders="left">LEFT CLICK</button><button class="mouseonly" data-orders="right">RIGHT CLICK</button>
+      <button id="btnVoice2">VOICE: ON</button>
+    </div>
     <div class="controls" id="pauseControls"></div>
     <button class="big" id="btnResume">RESUME</button>
     &nbsp; <button class="big" id="btnRestart" style="background:#4a2420;border-color:#c0503f">RESTART</button>
@@ -188,6 +275,12 @@ const TICK = 1 / 30;          // simulation step (seconds)
 const PLAYER = 0, ENEMY = 1;
 const params = new URLSearchParams(location.search);
 const SEED = parseInt(params.get('seed') || '7', 10);
+const isTouch = window.matchMedia('(pointer: coarse)').matches;
+if (isTouch) document.body.classList.add('touch');
+let ordersMode = 'left';        // which mouse button gives orders: 'left' (classic) or 'right'
+try { ordersMode = localStorage.getItem('catCommand.orders') || 'left'; } catch (e) { }
+let lastInputTouch = isTouch;   // true while the player is using a finger, not a mouse
+window.addEventListener('pointerdown', ev => { lastInputTouch = ev.pointerType === 'touch'; }, true);
 
 const DIFFICULTY = [
   { name: 'Recruit', income: 0.75, firstWave: 210, interval: 130, wave: 3 },
@@ -248,6 +341,7 @@ const DEFS = {
 };
 for (const k in DEFS) DEFS[k].key = k;
 const STRUCT_KEYS = ['gen', 'refinery', 'barracks', 'factory', 'turret'];
+const SHORT = { gen: 'Generator', refinery: 'Refinery', barracks: 'Barracks', factory: 'Roomba Works', turret: 'Laser Tower', rifle: 'Rifle Cat', grenadier: 'Grenadier', tank: 'Roomba Tank', harvester: 'Harvester' };
 const UNIT_KEYS = ['rifle', 'grenadier', 'tank', 'harvester'];
 const HARVEST_CAP = 500;
 
@@ -273,7 +367,7 @@ const LINES = {
 // ==========================================================================
 const viewEl = document.getElementById('view');
 const renderer = new THREE.WebGLRenderer({ antialias: true });
-renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, 2));
+renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, isTouch ? 1.5 : 2));
 renderer.shadowMap.enabled = true;
 renderer.shadowMap.type = THREE.PCFSoftShadowMap;
 viewEl.prepend(renderer.domElement);
@@ -287,7 +381,7 @@ const hemi = new THREE.HemisphereLight(0xd6dcb8, 0x3a3226, 1.25);
 scene.add(hemi);
 const sun = new THREE.DirectionalLight(0xffeccc, 2.4);
 sun.castShadow = true;
-sun.shadow.mapSize.set(2048, 2048);
+sun.shadow.mapSize.set(isTouch ? 1024 : 2048, isTouch ? 1024 : 2048);
 sun.shadow.bias = -0.0006;
 sun.shadow.normalBias = 0.02;
 scene.add(sun, sun.target);
@@ -1778,8 +1872,22 @@ function buildSidebar() {
   for (const key of tab === 'struct' ? STRUCT_KEYS : UNIT_KEYS) {
     const d = DEFS[key];
     const b = document.createElement('div'); b.className = 'bbtn';
-    b.innerHTML = `<img src="${icons[key + PLAYER] || ''}"><div class="bname">${d.name}</div><div class="bcost">${d.cost}</div><div class="bprog"></div><div class="blabel"></div><div class="bcount"></div>`;
+    b.innerHTML = `<img src="${icons[key + PLAYER] || ''}"><div class="bname">${SHORT[key]}</div><div class="bcost">${d.cost}</div><div class="bprog"></div><div class="blabel"></div><div class="bcount"></div>`;
     b.addEventListener('mousedown', ev => { ev.preventDefault(); onBuildButton(key, ev.button === 2); });
+    // touch: tap builds, press and hold puts on hold / cancels; a swipe scrolls the strip
+    b.addEventListener('touchstart', ev => {
+      const t = ev.touches[0]; b._t0 = { x: t.clientX, y: t.clientY };
+      clearTimeout(b._lp); b._lp = setTimeout(() => { b._lp = null; b._t0 = null; if (navigator.vibrate) navigator.vibrate(25); onBuildButton(key, true); }, 550);
+    }, { passive: true });
+    b.addEventListener('touchmove', ev => {
+      const t = ev.touches[0];
+      if (b._t0 && Math.hypot(t.clientX - b._t0.x, t.clientY - b._t0.y) > 10) { clearTimeout(b._lp); b._lp = null; b._t0 = null; }
+    }, { passive: true });
+    b.addEventListener('touchend', ev => {
+      ev.preventDefault();
+      if (b._lp) { clearTimeout(b._lp); b._lp = null; if (b._t0) onBuildButton(key, false); }
+      b._t0 = null;
+    }, { passive: false });
     b.addEventListener('contextmenu', ev => ev.preventDefault());
     b.addEventListener('mousemove', ev => showTip(key, ev));
     b.addEventListener('mouseleave', () => tooltipEl.style.display = 'none');
@@ -1821,7 +1929,7 @@ function onBuildButton(key, cancel) {
     }
     if (T.struct) {
       if (T.struct.key !== key) { say('Already building.', '', true); return; }
-      if (T.struct.ready) { placing = key; setHint('Click to place ' + d.name + ' · Right click to cancel'); return; }
+      if (T.struct.ready) { startPlacing(key); return; }
       if (T.struct.hold) { T.struct.hold = false; say('Building.'); }
       return;
     }
@@ -1884,26 +1992,31 @@ function updateSelPanel() {
   if (sig === selSig) return;
   selSig = sig;
   if (!sel.length) {
-    selEl.innerHTML = `<h3>NO SELECTION</h3><div class="muted">Drag a box around your troops, then right click to move or attack. Right click tuna with a harvester to send it fishing.</div>`;
+    const how = isTouch ? 'Tap a cat, then tap the ground to move or an enemy to attack. Drag to scroll, pinch to zoom.'
+      : ordersMode === 'left' ? 'Click your troops or drag a box round them, then click the ground to move or an enemy to attack.'
+      : 'Drag a box around your troops, then right click to move or attack.';
+    selEl.innerHTML = `<h3>NO SELECTION</h3><div class="muted">${how}</div><div class="row mouseonly"><button data-act="army">SELECT ALL TROOPS</button></div>`;
+    selEl.querySelectorAll('button[data-act]').forEach(b => b.addEventListener('click', () => doAction(b.dataset.act)));
     return;
   }
   if (sel.length === 1) {
     const e = sel[0], f = e.hp / e.maxHp, enemy = e.team !== PLAYER;
     let info = '';
-    if (e.key === 'harvester') info = `Cargo: ${Math.floor(e.cargo)} / ${HARVEST_CAP} tuna<br>${{ seek: 'Looking for tuna', toField: 'Heading to tuna', mining: 'Harvesting', toRef: 'Returning', toDock: 'Returning', unload: 'Unloading', wait: 'Waiting' }[e.hs] || 'Idle'}`;
+    if (e.key === 'harvester') info = `${Math.floor(e.cargo)} / ${HARVEST_CAP} tuna · ${{ seek: 'Looking for tuna', toField: 'Heading to tuna', mining: 'Harvesting', toRef: 'Returning', toDock: 'Returning', unload: 'Unloading', wait: 'Waiting' }[e.hs] || 'Idle'}`;
     else if (e.isUnit) info = { idle: 'Standing by', move: e.attackMove ? 'Attack-moving' : 'Moving', attack: 'Engaging' }[e.state] || '';
     else if (e.def.power) info = `Power: ${e.def.power > 0 ? '+' : ''}${e.def.power}`;
-    if (e.isBuilding && !enemy && (e.key === 'barracks' || e.key === 'factory')) info += '<br><span class="muted">Right click the map to set a rally point.</span>';
     let btnsHtml = '';
-    if (!enemy && e.isUnit) btnsHtml = `<button data-act="stop">STOP (S)</button>${e.def.weapon ? '<button data-act="am">ATTACK-MOVE (A)</button>' : '<button data-act="harvest">HARVEST</button>'}`;
-    if (!enemy && e.isBuilding) btnsHtml = `<button data-act="repair" class="${e.repairing ? 'on' : ''}">REPAIR</button>${e.key !== 'hq' ? '<button data-act="sell">SELL</button>' : ''}`;
-    selEl.innerHTML = `<div class="${enemy ? 'enemy' : ''}"><div style="display:flex;gap:6px;align-items:center"><img src="${icons[e.key + e.team] || ''}" width="54" height="54"><div><h3>${displayName(e)}</h3><div class="muted">${Math.ceil(e.hp)} / ${e.maxHp}</div></div></div>
-      <div class="hpbar"><div style="width:${f * 100}%;background:${hpColor(f)}"></div></div><div>${info}</div><div class="row">${btnsHtml}</div></div>`;
+    if (!enemy && e.isUnit) btnsHtml = `<button data-act="stop">STOP<span class="mouseonly"> (S)</span></button>${e.def.weapon ? '<button data-act="am">ATTACK-MOVE<span class="mouseonly"> (A)</span></button>' : '<button data-act="harvest">HARVEST</button>'}`;
+    if (!enemy && e.isBuilding) btnsHtml = `<button data-act="repair" class="${e.repairing ? 'on' : ''}">REPAIR</button>${e.key !== 'hq' ? '<button data-act="sell">SELL</button>' : ''}${e.key === 'barracks' || e.key === 'factory' ? '<button data-act="rally">SET RALLY</button>' : ''}`;
+    selEl.innerHTML = `<div class="selrow ${enemy ? 'enemy' : ''}"><img src="${icons[e.key + e.team] || ''}" width="48" height="48"><div class="seltext">
+      <h3>${displayName(e)}<button class="x" data-act="desel" title="Deselect (Esc)">✕</button></h3>
+      <div class="hpbar"><div style="width:${f * 100}%;background:${hpColor(f)}"></div></div>
+      <div class="info">${Math.ceil(e.hp)} / ${e.maxHp}${info ? ' · ' + info : ''}</div><div class="row">${btnsHtml}</div></div></div>`;
   } else {
     const counts = {};
     for (const e of sel) counts[e.key] = (counts[e.key] || 0) + 1;
-    selEl.innerHTML = `<h3>${sel.length} UNITS</h3><div class="selicons">${Object.entries(counts).map(([k, n]) => `<span><img src="${icons[k + PLAYER]}">×${n}</span>`).join('')}</div>
-      <div class="row"><button data-act="stop">STOP (S)</button><button data-act="am">ATTACK-MOVE (A)</button></div>`;
+    selEl.innerHTML = `<h3>${sel.length} UNITS<button class="x" data-act="desel" title="Deselect (Esc)">✕</button></h3><div class="multi"><div class="selicons">${Object.entries(counts).map(([k, n]) => `<span><img src="${icons[k + PLAYER]}">×${n}</span>`).join('')}</div>
+      <div class="row"><button data-act="stop">STOP<span class="mouseonly"> (S)</span></button><button data-act="am">ATTACK-MOVE<span class="mouseonly"> (A)</span></button></div></div>`;
   }
   selEl.querySelectorAll('button[data-act]').forEach(b => b.addEventListener('click', () => doAction(b.dataset.act)));
 }
@@ -1915,6 +2028,9 @@ function doAction(act) {
   if (act === 'harvest') units.filter(u => u.key === 'harvester').forEach(u => orderHarvest(u));
   if (act === 'repair' && sel[0]) { sel[0].repairing = !sel[0].repairing; }
   if (act === 'sell' && sel[0]) sellBuilding(sel[0]);
+  if (act === 'desel') sel = [];
+  if (act === 'army') selectAllTroops();
+  if (act === 'rally' && sel[0]) { rallyArmed = sel[0]; setHint((lastInputTouch ? 'Tap' : 'Click') + ' the map to set the rally point'); }
   selSig = '';
 }
 
@@ -1980,6 +2096,9 @@ mini.addEventListener('mousedown', ev => {
   else if (ev.button === 2) commandAt(w.x, w.z, null);
 });
 mini.addEventListener('contextmenu', ev => ev.preventDefault());
+const miniTouch = ev => { ev.preventDefault(); const w = miniToWorld(ev.touches[0]); cam.x = clamp(w.x, 0, N); cam.z = clamp(w.z, 0, N); };
+mini.addEventListener('touchstart', miniTouch, { passive: false });
+mini.addEventListener('touchmove', miniTouch, { passive: false });
 window.addEventListener('mousemove', ev => { if (miniDrag) { const w = miniToWorld(ev); cam.x = clamp(w.x, 0, N); cam.z = clamp(w.z, 0, N); } });
 window.addEventListener('mouseup', () => miniDrag = false);
 
@@ -2006,17 +2125,17 @@ function toScreen(x, y, z) {
   projV.set(x, y, z).project(camera);
   return { x: viewRect.left + (projV.x + 1) / 2 * viewRect.width, y: viewRect.top + (1 - projV.y) / 2 * viewRect.height, behind: projV.z > 1 };
 }
-function pixelRadius(e) {
+function pixelRadius(e, touch) {
   const d = camera.position.distanceTo(projV.set(e.x, 0.3, e.z));
-  return Math.max(12, (e.def.radius + 0.2) * viewRect.height / (2 * Math.tan(camera.fov * Math.PI / 360) * d));
+  return Math.max(touch ? 26 : 12, (e.def.radius + 0.2) * viewRect.height / (2 * Math.tan(camera.fov * Math.PI / 360) * d));
 }
-function pickEntity(sx, sy) {
+function pickEntity(sx, sy, touch) {
   let best = null, bd = 1e9;
   for (const e of entities) {
     if (e.dead || !e.isUnit || !visibleToPlayer(e)) continue;
     const s = toScreen(e.x, e.def.cls === 'inf' ? 0.4 : 0.25, e.z);
     const d = Math.hypot(s.x - sx, s.y - sy);
-    if (d < pixelRadius(e) && d < bd) { bd = d; best = e; }
+    if (d < pixelRadius(e, touch) && d < bd) { bd = d; best = e; }
   }
   if (best) return best;
   for (const y of [1.2, 0.6, 0]) {
@@ -2113,7 +2232,7 @@ window.addEventListener('mousemove', ev => {
   }
   if (drag) {
     const x0 = Math.min(drag.x, ev.clientX), y0 = Math.min(drag.y, ev.clientY), x1 = Math.max(drag.x, ev.clientX), y1 = Math.max(drag.y, ev.clientY);
-    if (x1 - x0 > 5 || y1 - y0 > 5) {
+    if (x1 - x0 > 8 || y1 - y0 > 8) {
       Object.assign(selboxEl.style, { display: 'block', left: (x0 - viewRect.left) + 'px', top: (y0 - viewRect.top) + 'px', width: (x1 - x0) + 'px', height: (y1 - y0) + 'px' });
     }
   }
@@ -2123,15 +2242,16 @@ window.addEventListener('mouseup', ev => {
   if (midDrag) {
     const m = midDrag; midDrag = null;
     if (m.right && !m.moved && started && !paused) {
-      const g = groundAt(m.x, m.y);
-      if (g) commandAt(g.x, g.z, pickEntity(m.x, m.y));
+      if (rallyArmed) { rallyArmed = null; setHint(''); }
+      else if (ordersMode === 'right') { const g = groundAt(m.x, m.y); if (g) commandAt(g.x, g.z, pickEntity(m.x, m.y)); }
+      else { sel = []; selSig = ''; }   // classic controls: right click deselects
     }
     return;
   }
   if (ev.button !== 0 || !drag) return;
   const d = drag; drag = null; selboxEl.style.display = 'none';
   const x0 = Math.min(d.x, ev.clientX), y0 = Math.min(d.y, ev.clientY), x1 = Math.max(d.x, ev.clientX), y1 = Math.max(d.y, ev.clientY);
-  if (x1 - x0 > 5 || y1 - y0 > 5) {
+  if (x1 - x0 > 8 || y1 - y0 > 8) {
     const list = entities.filter(e => {
       if (e.dead || !e.isUnit || e.team !== PLAYER) return false;
       const s = toScreen(e.x, 0.3, e.z); return s.x >= x0 && s.x <= x1 && s.y >= y0 && s.y <= y1;
@@ -2140,17 +2260,130 @@ window.addEventListener('mouseup', ev => {
     selectOnly(combat.length ? combat : list, d.shift);
     return;
   }
-  const hit = pickEntity(ev.clientX, ev.clientY);
+  primaryClick(ev.clientX, ev.clientY, d.shift, false);
+});
+
+// A plain click or tap. With classic controls (and always on touch) it gives orders when your
+// troops are selected and you click the ground or an enemy; otherwise it selects.
+let rallyArmed = null;
+const myUnits = () => sel.filter(e => e.isUnit && e.team === PLAYER && !e.dead);
+function wantsOrder(hit) {
+  const mine = myUnits(); if (!mine.length) return false;
+  if (!hit || hit.team !== PLAYER) return true;
+  return hit.key === 'refinery' && mine.some(u => u.key === 'harvester');
+}
+function selectAllTroops() { selectOnly(entities.filter(e => !e.dead && e.isUnit && e.team === PLAYER && e.def.weapon), false); }
+function primaryClick(sx, sy, shift, touch) {
+  if (rallyArmed) {
+    const g = groundAt(sx, sy);
+    if (g && !rallyArmed.dead) { rallyArmed.rally = { x: g.x, z: g.z }; marker(g.x, g.z, 0xffe080); say('Rally point set.', '', false); }
+    rallyArmed = null; setHint(''); return;
+  }
+  const hit = pickEntity(sx, sy, touch);
   const now = performance.now();
-  if (hit && hit.team === PLAYER && hit.isUnit && lastClick.id === hit.id && now - lastClick.t < 350) {
+  if ((ordersMode === 'left' || touch) && !shift && wantsOrder(hit)) {
+    const g = groundAt(sx, sy); if (g) commandAt(g.x, g.z, hit);
+    lastClick = { t: 0, id: 0 };
+    return;
+  }
+  if (hit && hit.team === PLAYER && hit.isUnit && lastClick.id === hit.id && now - lastClick.t < 380) {
     const same = entities.filter(e => !e.dead && e.isUnit && e.team === PLAYER && e.key === hit.key && (() => { const s = toScreen(e.x, 0.3, e.z); return s.x >= viewRect.left && s.x <= viewRect.right && s.y >= viewRect.top && s.y <= viewRect.bottom; })());
     selectOnly(same, false);
   } else if (hit) {
-    if (d.shift && hit.isUnit && hit.team === PLAYER) { if (sel.includes(hit)) { sel = sel.filter(s => s !== hit); selSig = ''; } else selectOnly([hit], true); }
+    if (shift && hit.isUnit && hit.team === PLAYER) { if (sel.includes(hit)) { sel = sel.filter(s => s !== hit); selSig = ''; } else selectOnly([hit], true); }
     else selectOnly([hit], false);
-  } else if (!d.shift) { sel = []; selSig = ''; }
+  } else if (!shift) { sel = []; selSig = ''; }
   lastClick = { t: now, id: hit ? hit.id : 0 };
-});
+}
+
+function startPlacing(key) {
+  placing = key; touchGhost = null;
+  const d = DEFS[key];
+  if (lastInputTouch) {
+    const g = groundAt(viewRect.left + viewRect.width / 2, viewRect.top + viewRect.height / 2);
+    if (g) touchGhost = { tx: Math.round(g.x - d.size[0] / 2), tz: Math.round(g.z - d.size[1] / 2) };
+    setHint('Tap where it should go, then tap the outline again to build');
+  } else setHint('Click to place ' + d.name + ' · ' + (ordersMode === 'left' ? 'Right click or Esc' : 'Right click') + ' to cancel');
+}
+
+// ---- touch: tap selects and gives orders, one finger drags the map, two fingers pinch-zoom
+let tg = null, boxMode = false, touchGhost = null;
+const tpts = new Map();
+const tdist = () => { const [a, b] = [...tpts.values()]; return Math.hypot(a.x - b.x, a.y - b.y); };
+const tmid = () => { const [a, b] = [...tpts.values()]; return { x: (a.x + b.x) / 2, y: (a.y + b.y) / 2 }; };
+function panFrom(start, dx, dy) {
+  const k = cam.dist / viewRect.height * 1.6, s = Math.sin(cam.yaw), c = Math.cos(cam.yaw);
+  cam.x = clamp(start.cx - (c * dx + s * dy) * k, 0, N); cam.z = clamp(start.cz - (-s * dx + c * dy) * k, 0, N);
+}
+function showBox(ax, ay, bx, by) {
+  const x0 = Math.min(ax, bx), y0 = Math.min(ay, by);
+  Object.assign(selboxEl.style, { display: 'block', left: (x0 - viewRect.left) + 'px', top: (y0 - viewRect.top) + 'px', width: Math.abs(bx - ax) + 'px', height: Math.abs(by - ay) + 'px' });
+}
+function boxSelect(ax, ay, bx, by, shift) {
+  const x0 = Math.min(ax, bx), y0 = Math.min(ay, by), x1 = Math.max(ax, bx), y1 = Math.max(ay, by);
+  const list = entities.filter(e => { if (e.dead || !e.isUnit || e.team !== PLAYER) return false; const s = toScreen(e.x, 0.3, e.z); return s.x >= x0 && s.x <= x1 && s.y >= y0 && s.y <= y1; });
+  const combat = list.filter(e => e.key !== 'harvester');
+  selectOnly(combat.length ? combat : list, shift);
+}
+function handleTap(sx, sy) {
+  if (placing) {
+    const g = groundAt(sx, sy); if (!g) return;
+    const [w, h] = DEFS[placing].size;
+    const G0 = touchGhost;
+    if (G0 && g.x >= G0.tx - 0.3 && g.x <= G0.tx + w + 0.3 && g.z >= G0.tz - 0.3 && g.z <= G0.tz + h + 0.3 && canPlace(PLAYER, placing, G0.tx, G0.tz)) {
+      placeStructure(PLAYER, placing, G0.tx, G0.tz); placing = null; touchGhost = null; setHint('');
+    } else {
+      touchGhost = { tx: Math.round(g.x - w / 2), tz: Math.round(g.z - h / 2) };
+      setHint(canPlace(PLAYER, placing, touchGhost.tx, touchGhost.tz) ? 'Tap the outline again to build here' : 'Too far or blocked: tap somewhere else');
+    }
+    return;
+  }
+  if (attackMoveArmed) {
+    const g = groundAt(sx, sy), units = myUnits().filter(u => u.def.weapon);
+    if (g && units.length) { commandGroup(units, g.x, g.z, true); marker(g.x, g.z, 0xff8030); ack(units, 'atk'); }
+    disarm(); return;
+  }
+  primaryClick(sx, sy, false, true);
+}
+viewEl.addEventListener('touchstart', ev => {
+  ev.preventDefault();
+  if (!started || paused) return;
+  initAudio();
+  for (const t of ev.changedTouches) tpts.set(t.identifier, { x: t.clientX, y: t.clientY });
+  if (tpts.size === 1) { const p = [...tpts.values()][0]; tg = { mode: 'tap', sx: p.x, sy: p.y, x: p.x, y: p.y, cx: cam.x, cz: cam.z, t: performance.now() }; }
+  else if (tpts.size === 2) { tg = { mode: 'pinch', d0: tdist(), m0: tmid(), cx: cam.x, cz: cam.z, dist0: cam.distT }; selboxEl.style.display = 'none'; }
+}, { passive: false });
+viewEl.addEventListener('touchmove', ev => {
+  ev.preventDefault();
+  if (!tg) return;
+  for (const t of ev.changedTouches) if (tpts.has(t.identifier)) tpts.set(t.identifier, { x: t.clientX, y: t.clientY });
+  if (tg.mode === 'pinch') {
+    if (tpts.size < 2) return;
+    const m = tmid();
+    cam.distT = cam.dist = clamp(tg.dist0 * tg.d0 / Math.max(10, tdist()), 9, 50);
+    panFrom(tg, m.x - tg.m0.x, m.y - tg.m0.y);
+    return;
+  }
+  if (tpts.size !== 1) return;
+  const p = [...tpts.values()][0]; tg.x = p.x; tg.y = p.y;
+  if (tg.mode === 'tap' && Math.hypot(p.x - tg.sx, p.y - tg.sy) > 12) tg.mode = boxMode ? 'box' : 'pan';
+  if (tg.mode === 'pan') panFrom(tg, p.x - tg.sx, p.y - tg.sy);
+  if (tg.mode === 'box') showBox(tg.sx, tg.sy, p.x, p.y);
+}, { passive: false });
+function touchEnd(ev) {
+  ev.preventDefault();
+  for (const t of ev.changedTouches) tpts.delete(t.identifier);
+  if (!tg) return;
+  if (tpts.size === 0) {
+    if (tg.mode === 'tap' && performance.now() - tg.t < 600) handleTap(tg.sx, tg.sy);
+    else if (tg.mode === 'box') { selboxEl.style.display = 'none'; boxSelect(tg.sx, tg.sy, tg.x, tg.y, false); boxMode = false; document.getElementById('tbBox').classList.remove('on'); }
+    tg = null;
+  } else if (tg.mode === 'pinch') tg = { mode: 'done' };   // lifting one finger of a pinch isn't a tap
+}
+viewEl.addEventListener('touchend', touchEnd, { passive: false });
+viewEl.addEventListener('touchcancel', touchEnd, { passive: false });
+document.getElementById('tbBox').addEventListener('click', ev => { boxMode = !boxMode; ev.currentTarget.classList.toggle('on', boxMode); if (boxMode) setHint('Drag across your troops to select them'); else setHint(''); });
+document.getElementById('tbArmy').addEventListener('click', () => { selectAllTroops(); playSfx('click'); });
 // Trackpad: two-finger swipe scrolls the map, pinch zooms (browsers send a pinch as a wheel
 // event with ctrlKey set; Safari sends gesture events instead).
 function panScreen(dx, dy) {
@@ -2178,10 +2411,15 @@ function toggleFullscreen() {
 window.addEventListener('keydown', ev => {
   if (!started) return;
   const k = ev.key;
-  if (k === 'p' || k === 'P' || (k === 'Escape' && !placing && !attackMoveArmed)) { togglePause(); return; }
+  if (k === 'p' || k === 'P') { togglePause(); return; }
+  if (k === 'Escape') {
+    if (paused) { togglePause(); return; }
+    if (placing || attackMoveArmed || rallyArmed) { placing = null; rallyArmed = null; disarm(); setHint(''); return; }
+    if (sel.length) { sel = []; selSig = ''; return; }
+    togglePause(); return;
+  }
   if (paused) return;
   keys[k] = true;
-  if (k === 'Escape') { placing = null; disarm(); setHint(''); }
   if (k === 'a' || k === 'A') armAttackMove();
   if (k === 's' || k === 'S') { sel.filter(e => e.isUnit && e.team === PLAYER).forEach(orderStop); selSig = ''; }
   if (k === '=' || k === '+') cam.distT = clamp(cam.distT * 0.85, 9, 50);
@@ -2215,9 +2453,15 @@ const GHOST_BAD = new THREE.MeshBasicMaterial({ color: 0xff4030, transparent: tr
 const ghostBox = new THREE.Mesh(new THREE.BoxGeometry(1, 1, 1), new THREE.MeshBasicMaterial({ color: 0xc8f0a0, transparent: true, opacity: 0.18, depthWrite: false }));
 ghost.add(ghostBox);
 function updateGhost() {
-  if (!placing || !mouse.inside) { ghost.visible = false; return; }
-  const g = groundAt(mouse.x, mouse.y); if (!g) { ghost.visible = false; return; }
-  const d = DEFS[placing], [w, h] = d.size, tx = Math.round(g.x - w / 2), tz = Math.round(g.z - h / 2);
+  if (!placing) { ghost.visible = false; touchGhost = null; return; }
+  const d = DEFS[placing], [w, h] = d.size;
+  let tx, tz;
+  if (touchGhost) { tx = touchGhost.tx; tz = touchGhost.tz; }
+  else {
+    if (!mouse.inside || lastInputTouch) { ghost.visible = false; return; }
+    const g = groundAt(mouse.x, mouse.y); if (!g) { ghost.visible = false; return; }
+    tx = Math.round(g.x - w / 2); tz = Math.round(g.z - h / 2);
+  }
   const ok = canPlace(PLAYER, placing, tx, tz);
   ghost.visible = true;
   while (ghostTiles.length < 9) { const m = new THREE.Mesh(G('gt', () => new THREE.PlaneGeometry(0.94, 0.94).rotateX(-Math.PI / 2)), GHOST_OK); ghost.add(m); ghostTiles.push(m); }
@@ -2274,7 +2518,7 @@ function startGame(d) {
   document.getElementById('briefing').classList.add('hidden');
   initAudio();
   say('Welcome back, Commander.');
-  say('Swipe with two fingers to scroll the map. Pinch to zoom.', '', false);
+  say(isTouch ? 'Drag to scroll, pinch to zoom. Tap a cat, then tap the ground.' : 'Swipe with two fingers to scroll the map. Pinch to zoom.', '', false);
   buildSidebar(); updateSidebar();
 }
 
@@ -2416,7 +2660,7 @@ function updateVisuals(alpha, rdt, now) {
 function updateCamera(rdt) {
   let rx = 0, ry = 0;
   if (keys.ArrowLeft) rx -= 1; if (keys.ArrowRight) rx += 1; if (keys.ArrowUp) ry += 1; if (keys.ArrowDown) ry -= 1;
-  if (mouse.inside && !drag && !midDrag && !miniDrag && started && !paused && document.hasFocus()) {
+  if (mouse.inside && !lastInputTouch && !drag && !midDrag && !miniDrag && started && !paused && document.hasFocus()) {
     const m = 14;
     if (mouse.x <= m) rx -= 1; if (mouse.x >= innerWidth - m) rx += 1;
     if (mouse.y <= m) ry += 1; if (mouse.y >= innerHeight - m) ry -= 1;
@@ -2463,7 +2707,7 @@ function render(now = performance.now(), rdt = 1 / 60) {
     const s = toScreen(b.u.group.position.x, b.u.def.cls === 'inf' ? 1.05 : 0.95, b.u.group.position.z);
     b.el.style.left = (s.x - viewRect.left) + 'px'; b.el.style.top = (s.y - viewRect.top) + 'px';
   }
-  hudT -= rdt; if (hudT <= 0) { hudT = 0.1; sel = sel.filter(e => !e.dead); updateSidebar(); updateSelPanel(); }
+  hudT -= rdt; if (hudT <= 0) { hudT = 0.1; sel = sel.filter(e => !e.dead); updateSidebar(); updateSelPanel(); updateCursor(); }
   miniT -= rdt; if (miniT <= 0) { miniT = 0.2; drawMinimap(); }
   renderer.render(scene, camera);
 }
@@ -2493,14 +2737,67 @@ document.getElementById('btnRestart').addEventListener('click', () => location.r
 document.getElementById('btnAgain').addEventListener('click', () => location.reload());
 document.getElementById('btnMenu').addEventListener('click', () => { if (started) togglePause(); });
 document.getElementById('btnFull').addEventListener('click', toggleFullscreen);
-document.getElementById('btnVoice').addEventListener('click', ev => { voiceOn = !voiceOn; ev.target.textContent = 'VOICE: ' + (voiceOn ? 'ON' : 'OFF'); if (!voiceOn && 'speechSynthesis' in window) speechSynthesis.cancel(); });
-document.getElementById('pauseControls').innerHTML = document.querySelector('#briefing .controls').innerHTML;
+function toggleVoice() {
+  voiceOn = !voiceOn;
+  for (const id of ['btnVoice', 'btnVoice2']) document.getElementById(id).textContent = 'VOICE: ' + (voiceOn ? 'ON' : 'OFF');
+  if (!voiceOn && 'speechSynthesis' in window) speechSynthesis.cancel();
+}
+document.getElementById('btnVoice').addEventListener('click', toggleVoice);
+document.getElementById('btnVoice2').addEventListener('click', toggleVoice);
+if (!document.fullscreenEnabled) document.getElementById('btnFull').style.display = 'none';
+
+// hover feedback: crosshair over enemies when troops are selected, pointer over things you can pick
+function updateCursor() {
+  if (!started || lastInputTouch || !mouse.inside) return;
+  let c = '';
+  if (placing) c = 'cell';
+  else if (attackMoveArmed || rallyArmed) c = 'crosshair';
+  else if (mouse.x >= viewRect.left && mouse.x <= viewRect.right && mouse.y >= viewRect.top && mouse.y <= viewRect.bottom) {
+    const hit = pickEntity(mouse.x, mouse.y);
+    if (hit && hit.team !== PLAYER && myUnits().some(u => u.def.weapon)) c = 'crosshair';
+    else if (hit) c = 'pointer';
+  }
+  if (viewEl.style.cursor !== c) viewEl.style.cursor = c;
+}
+
+function renderControls() {
+  const L = ordersMode === 'left';
+  const rows = isTouch ? [
+    ['Tap', 'select a cat or building · double-tap selects every unit of that type'],
+    ['Tap the ground', 'move the selected troops · tap an enemy to attack · tap tuna with a harvester to harvest'],
+    ['One-finger drag', 'scroll the map · pinch with two fingers to zoom'],
+    ['BOX SELECT', 'turn it on, then drag across a group · ALL TROOPS selects your whole army'],
+    ['Command panel', 'tap to build or queue, press and hold to put on hold or cancel'],
+    ['Placing', 'tap a finished structure, tap where it goes, then tap the outline again'],
+    ['Minimap', 'tap or drag to jump around the map'],
+  ] : [
+    ['Left click / drag', L ? 'select troops · with troops selected, click the ground to move or an enemy to attack' : 'select units (Shift adds, double-click selects all of a type)'],
+    [L ? 'Right click or Esc' : 'Right click', L ? 'deselect · Shift + click adds to a selection, double-click selects a whole type' : 'move, attack, harvest tuna, or set a rally point (Mac: two-finger click or Ctrl + click)'],
+    ['A, then click', 'attack-move: fight anything met on the way · S stops'],
+    ['Two-finger swipe', 'scroll the map · pinch or + / − to zoom · Q / E rotate'],
+    ['Also scrolls', 'arrow keys, screen edge, Option + drag, right-drag, or the minimap · F full screen'],
+    ['Ctrl + 1-9, then 1-9', 'make and recall squads · H jumps home · Space jumps to the last alert'],
+    ['Sidebar', 'left click builds or queues, right click holds then cancels; finished structures are placed on the map'],
+  ];
+  const html = rows.map(([a, b]) => `<b>${a}</b><span>${b}</span>`).join('');
+  document.querySelector('#briefing .controls').innerHTML = html;
+  document.getElementById('pauseControls').innerHTML = html;
+}
+function setOrders(m) {
+  ordersMode = m === 'right' ? 'right' : 'left';
+  try { localStorage.setItem('catCommand.orders', ordersMode); } catch (e) { }
+  document.querySelectorAll('[data-orders]').forEach(b => b.classList.toggle('on', b.dataset.orders === ordersMode));
+  renderControls(); selSig = '';
+}
+document.querySelectorAll('[data-orders]').forEach(b => b.addEventListener('click', () => setOrders(b.dataset.orders)));
+setOrders(ordersMode);
 
 // ---- boot
 setupWorld();
 renderIcons();
 buildSidebar(); updateSidebar(); updateSelPanel();
 cam.x = 15; cam.z = 78;
+if (viewRect.width < viewRect.height) cam.dist = cam.distT = 30;   // tall phone screens see less across
 requestAnimationFrame(frame);
 
 // hooks for the tests
@@ -2514,6 +2811,10 @@ window.__game = {
   select: ids => { sel = ids.map(id => byId.get(id)).filter(Boolean); selSig = ''; },
   command: (x, z) => commandAt(x, z, null),
   queue: key => DEFS[key].kind === 'unit' ? queueUnit(PLAYER, key) : startStructure(PLAYER, key),
+  setOrders: m => setOrders(m),
+  screenOf: id => { const e = byId.get(id); return e && toScreen(e.x, 0.3, e.z); },
+  get selected() { return sel.map(e => e.id); },
+  get placing() { return placing; },
   place: (key, tx, tz) => { if (canPlace(PLAYER, key, tx, tz)) { placeStructure(PLAYER, key, tx, tz); return true; } return false; },
 };
 </script>

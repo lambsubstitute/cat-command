@@ -30,24 +30,49 @@ Open `index.html` in a desktop browser and it runs. There's no build step and no
 
 ## Controls
 
+### Mouse and trackpad
+
+Orders go on the **left** click by default, like the classic games: click your troops (or drag a box round them), then click the ground to move or an enemy to attack. If you'd rather give orders with the right button, switch "Orders on" to Right click on the briefing screen or in the pause menu. The game remembers your choice.
+
 | | |
 |---|---|
-| Left click / drag | Select (Shift adds; double-click selects every unit of that type on screen) |
-| Right click | Move, attack, harvest, return to refinery, or set a rally point for a barracks or factory. On a Mac trackpad: two-finger click, or Ctrl + click |
+| Left click / drag | Select. With troops selected, click the ground to move, an enemy to attack, tuna to harvest, or your refinery to unload |
+| Right click, Ctrl + click or Esc | Deselect (or give orders, if you've switched orders to the right button) |
+| Shift + click, double-click | Add to the selection; select every unit of that type on screen |
 | A, then click | Attack-move |
 | S | Stop |
 | Two-finger swipe | Scroll the map |
 | Pinch, or + / − | Zoom |
-| Arrow keys, screen edge, Option + drag, right-drag, middle drag, or drag on the minimap | Also scroll |
+| Arrow keys, screen edge, Option + drag, right-drag, middle drag, or the minimap | Also scroll |
 | F | Full screen (makes edge scrolling much easier) |
 | Q / E | Rotate the view |
 | Ctrl + 1-9, then 1-9 | Make and recall squads (press twice to jump to them) |
 | H | Jump to your Command Box |
 | Space | Jump to the last alert |
-| P or Esc | Pause |
+| P | Pause |
 | Sidebar | Left click builds or queues, right click puts on hold, then cancels and refunds |
 
-Selected buildings can be repaired (costs tuna) or sold for half price.
+The pointer turns into a crosshair over an enemy you can attack.
+
+### Phones and tablets
+
+The game works held either way. Upright, the map is on top with the command panel along the bottom; sideways, there's a slim sidebar. The minimap floats in the corner.
+
+| | |
+|---|---|
+| Tap | Select a cat or building; double-tap selects every unit of that type |
+| Tap the ground | Move the selected troops (tap an enemy to attack, tuna to harvest) |
+| One-finger drag | Scroll the map |
+| Pinch | Zoom |
+| BOX SELECT | Turn on, then drag across a group |
+| ALL TROOPS | Select your whole army |
+| Command panel | Tap to build or queue; press and hold to put on hold or cancel |
+| Placing a structure | Tap where it goes, then tap the outline again to build |
+| Minimap | Tap or drag to jump around |
+
+On an iPhone, "Add to Home Screen" from the share menu runs it full screen.
+
+Selected buildings can be repaired (costs tuna) or sold for half price, and a barracks or Roomba Works can be given a rally point (SET RALLY) where new units gather.
 
 `?seed=12` on the page address gives a different map.
 
@@ -72,8 +97,9 @@ The tests drive the game in headless Chromium with Playwright.
 pip install playwright --break-system-packages && python3 -m playwright install chromium   # once
 python3 tests/smoke.py 6 out      # six game minutes of a do-nothing player; prints each side's forces every minute
 python3 tests/flow.py out         # builds and places a barracks, trains troops, box-selects and moves them with real clicks, then checks the trackpad controls
+python3 tests/touch.py out        # phone sizes, upright and sideways: layout fits, tap, drag, pinch, placing, minimap
 ```
 
-Both fail on any page or console error. Screenshots land in the folder you name (`out` above), and `*.png` is git-ignored.
+All three fail on any page or console error. Screenshots land in the folder you name (`out` above), and `*.png` is git-ignored.
 
 The page exposes `window.__game` for tests: `step(seconds)` runs the simulation, `reveal(true)` lifts the fog, and there are `select`, `command`, `queue` and `place` helpers.
