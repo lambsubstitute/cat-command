@@ -95,7 +95,9 @@ with sync_playwright() as p:
     army = pg.evaluate("__game.entities.filter(e => e.team === 0 && e.isUnit && e.def.weapon).map(e => e.id)")
     pg.evaluate(f'__game.select({army})')
     pg.keyboard.down('Control'); pg.mouse.click(cx + 150, cy - 100); pg.keyboard.up('Control')
-    moving = pg.evaluate("__game.entities.filter(e => e.team === 0 && e.key === 'rifle' && e.state === 'move').length")
+    # (units stepping out of a passing harvester's way don't count as ordered)
+    ordered = "__game.entities.filter(e => e.team === 0 && e.key === 'rifle' && e.state === 'move' && !(e.yieldT > __game.time)).length"
+    moving = pg.evaluate(ordered)
     check(moving == 0 and pg.evaluate('__game.selected.length') == 0, f'classic controls: Ctrl + click deselects (moving {moving})')
     pg.evaluate("__game.setOrders('right')")
     pg.evaluate(f'__game.select({army})')
@@ -107,7 +109,7 @@ with sync_playwright() as p:
     c4 = cam()
     pg.mouse.move(cx, cy); pg.mouse.down(button='right'); pg.mouse.move(cx - 200, cy, steps=6); pg.mouse.up(button='right')
     c5 = cam()
-    moving = pg.evaluate("__game.entities.filter(e => e.team === 0 && e.key === 'rifle' && e.state === 'move').length")
+    moving = pg.evaluate(ordered)
     check(c5[0] > c4[0] + 1 and moving == 0, f'right-drag pans and gives no order (x {c4[0]:.1f} -> {c5[0]:.1f}, moving {moving})')
     b.close()
 

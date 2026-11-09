@@ -960,11 +960,24 @@ function unitOnTile(tx, tz) {
 
 function clearLine(ax, az, bx, bz) {
   const d = Math.hypot(bx - ax, bz - az), steps = Math.ceil(d / 0.2);
+  const sTile = I(Math.floor(ax), Math.floor(az)), eTile = I(Math.floor(bx), Math.floor(bz));
   for (let i = 1; i <= steps; i++) {
     const t = i / steps, x = ax + (bx - ax) * t, z = az + (bz - az) * t;
     if (blockedAt(x + 0.26, z + 0.26) || blockedAt(x - 0.26, z + 0.26) || blockedAt(x + 0.26, z - 0.26) || blockedAt(x - 0.26, z - 0.26)) return false;
+    if (softOn) { const c = I(Math.floor(x), Math.floor(z)); if (soft[c] === softOn && c !== sTile && c !== eTile) return false; }
   }
   return true;
+}
+
+// Tiles with other units on them, marked while a stuck unit looks for a way round.
+// They cost extra rather than being walls, so a path can still squeeze past if it must.
+const soft = new Uint32Array(N * N); let softOn = 0, softId = 0;
+function findPathAround(u, bx, bz) {
+  softOn = ++softId;
+  forUnitsNear(u.x, u.z, 6, o => { if (o !== u && !o.dead) for (const [ox, oz] of [[0, 0], [o.def.radius, 0], [-o.def.radius, 0], [0, o.def.radius], [0, -o.def.radius]]) { const tx = Math.floor(o.x + ox), tz = Math.floor(o.z + oz); if (inMap(tx, tz)) soft[I(tx, tz)] = softOn; } });
+  const path = findPath(u.x, u.z, bx, bz);
+  softOn = 0;
+  return path;
 }
 
 function findPath(ax, az, bx, bz) {
@@ -992,7 +1005,7 @@ function findPath(ax, az, bx, bz) {
       const nx = cx + dx, nz = cz + dz;
       if (isBlocked(nx, nz)) continue;
       if (dx && dz && (isBlocked(cx + dx, cz) || isBlocked(cx, cz + dz))) continue;
-      const ni = I(nx, nz), ng = gS[cur] + cost;
+      const ni = I(nx, nz), ng = gS[cur] + cost + (softOn && soft[ni] === softOn ? 4 : 0);
       if (stamp[ni] !== searchId || ng < gS[ni]) {
         stamp[ni] = searchId; gS[ni] = ng; cameFrom[ni] = cur;
         heap.push(ni, ng + octile(nx, nz, gx, gz));
@@ -1116,13 +1129,30 @@ function distTo(a, e) {
   return Math.max(0, Math.hypot(e.x - a.x, e.z - a.z) - e.def.radius);
 }
 
+// ---- unit grid: who is near whom, rebuilt every tick
+const UG = 2, UGN = N / UG;
+const ugHead = new Int32Array(UGN * UGN).fill(-1), ugNext = [], ugList = [];
+function buildUnitGrid() {
+  ugHead.fill(-1); ugNext.length = 0; ugList.length = 0;
+  for (const e of entities) if (e.isUnit && !e.dead) {
+    const c = clamp(Math.floor(e.z / UG), 0, UGN - 1) * UGN + clamp(Math.floor(e.x / UG), 0, UGN - 1);
+    ugNext.push(ugHead[c]); ugHead[c] = ugList.length; ugList.push(e);
+  }
+}
+function forUnitsNear(x, z, r, fn) {
+  const x0 = clamp(Math.floor((x - r) / UG), 0, UGN - 1), x1 = clamp(Math.floor((x + r) / UG), 0, UGN - 1);
+  const z0 = clamp(Math.floor((z - r) / UG), 0, UGN - 1), z1 = clamp(Math.floor((z + r) / UG), 0, UGN - 1);
+  for (let cz = z0; cz <= z1; cz++) for (let cx = x0; cx <= x1; cx++)
+    for (let i = ugHead[cz * UGN + cx]; i !== -1; i = ugNext[i]) fn(ugList[i]);
+}
+
 // ==========================================================================
 // ORDERS
 // ==========================================================================
 function orderMove(u, x, z, attackMove = false) {
   u.state = 'move'; u.target = null; u.attackMove = attackMove; u.dest = { x, z };
   u.path = findPath(u.x, u.z, x, z); u.pathI = 0; u.guard = null; u.resume = null; u.stuck = 0;
-  if (u.key === 'harvester') u.hs = null;
+  if (u.key === 'harvester') { u.hs = null; u.mining = false; releaseReservation(u); }
 }
 function orderAttack(u, t, forced = true) {
   if (!u.def.weapon || !t || t.dead) return;
@@ -1172,30 +1202,103 @@ function tryMove(u, dx, dz) {
   return false;
 }
 
+// Look ahead for other units and veer round them. Everyone passes on their own
+// right, so two units meeting head-on slide past each other instead of pushing.
+// A unit catching up with one going the same way slows down rather than ramming it,
+// and an idle friendly in the way is asked to step aside.
+function steer(u, dx, dz, dist) {
+  const veh = u.def.cls === 'veh', look = veh ? 1.7 : 1.0;
+  const rx = dz, rz = -dx;   // our right-hand side
+  let lat = 0, slow = 1, idleBlock = null, ib = 1e9;
+  forUnitsNear(u.x, u.z, look + 1.2, o => {
+    if (o === u || o.dead) return;
+    const ox = o.x - u.x, oz = o.z - u.z;
+    const ahead = ox * dx + oz * dz;
+    const rs = u.def.radius + o.def.radius + 0.06;
+    if (ahead <= 0.05 || ahead > look + rs || ahead > dist + rs * 0.5) return;
+    const side = ox * rx + oz * rz;
+    if (Math.abs(side) >= rs) return;
+    const near = 1 - Math.max(0, ahead - rs) / look;          // 0 far ... 1 touching
+    if (o.moving && Math.sin(o.rot) * dx + Math.cos(o.rot) * dz > 0.5) {   // same way: follow
+      slow = Math.min(slow, clamp((ahead - rs) / (look * 0.7), 0.25, 1));
+      return;
+    }
+    const centred = Math.abs(side) < 0.08;
+    lat += (centred ? 1 : -Math.sign(side)) * near * (1.2 - Math.abs(side) / rs * 0.6);
+    if (o.team === u.team && o.state === 'idle' && ahead < ib) { ib = ahead; idleBlock = o; }
+  });
+  if (idleBlock && ib < u.def.radius + idleBlock.def.radius + 0.5 && !(idleBlock.yieldT > time)) stepAside(idleBlock, dx, dz, u);
+  lat = clamp(lat, -1.4, 1.4);
+  // don't veer into a wall: try the other side, or give up veering
+  if (lat !== 0) {
+    const sg = Math.sign(lat), r = u.def.radius + 0.35;
+    if (blockedAt(u.x + rx * sg * r, u.z + rz * sg * r)) lat = blockedAt(u.x - rx * sg * r, u.z - rz * sg * r) ? 0 : -lat;
+  }
+  u.lat = (u.lat || 0) + (lat - (u.lat || 0)) * 0.3;
+  let sx = dx + rx * u.lat, sz = dz + rz * u.lat; const l = Math.hypot(sx, sz) || 1;
+  return [sx / l, sz / l, slow * (1 - 0.25 * Math.min(1, Math.abs(u.lat)))];
+}
+
+// an idle unit nudged by a friend walks a little way off to the side
+function stepAside(o, dx, dz, by) {
+  o.yieldT = time + 2.5;
+  const rel = (o.x - by.x) * dz - (o.z - by.z) * dx;   // which side of the mover's line it's on
+  for (const sg of rel >= 0 ? [1, -1] : [-1, 1]) {
+    const x = o.x + dz * sg * 1.4 + dx * 0.6, z = o.z - dx * sg * 1.4 + dz * 0.6;
+    if (!blockedAt(x, z)) { orderMove(o, x, z); o.state = 'move'; return; }
+  }
+}
+
 function followPath(u, dt) {
   if (!u.path || u.pathI >= u.path.length) { u.moving = false; return true; }
+  if (u.path !== u.progPath) { u.progPath = u.path; u.progD = 1e9; u.progT = 0; }
   const [px, pz] = u.path[u.pathI];
   const dx = px - u.x, dz = pz - u.z, d = Math.hypot(dx, dz);
   const last = u.pathI === u.path.length - 1;
   if (d < (last ? 0.12 : 0.3)) { u.pathI++; if (u.pathI >= u.path.length) { u.moving = false; return true; } return false; }
-  const want = Math.atan2(dx, dz);
   const veh = u.def.cls === 'veh';
+  const [mx, mz, slow] = steer(u, dx / d, dz / d, last ? d : 99);
+  const want = Math.atan2(mx, mz);
   u.rot = turnToward(u.rot, want, (veh ? 4.5 : 10) * dt);
-  let f = 1;
-  if (veh) { const diff = Math.abs(angDiff(u.rot, want)); f = diff > 1.3 ? 0.1 : 1 - diff / 1.6; }
+  let f = slow;
+  if (veh) { const diff = Math.abs(angDiff(u.rot, want)); f *= diff > 1.3 ? 0.1 : 1 - diff / 1.6; }
   const sp = Math.min(d, u.def.speed * dt * f);
-  const ox = u.x, oz = u.z;
-  tryMove(u, dx / d * sp, dz / d * sp);
+  tryMove(u, mx * sp, mz * sp);
   u.moving = true;
-  const moved = Math.hypot(u.x - ox, u.z - oz);
-  if (moved < sp * 0.3) u.stuck += dt; else u.stuck = Math.max(0, u.stuck - dt);
-  if (u.stuck > 1.2) {
-    u.stuck = 0;
+
+  // Stuck means not getting any closer to the end of the path, measured each second.
+  // (Units shoved about by their neighbours still move, so movement alone can't tell.)
+  u.progT += dt;
+  if (u.progT >= 1) {
+    u.progT = 0;
     const end = u.path[u.path.length - 1];
-    if (Math.hypot(end[0] - u.x, end[1] - u.z) < 1.6) { u.path = null; u.moving = false; return true; }
-    u.path = findPath(u.x, u.z, end[0], end[1]); u.pathI = 0;
+    const left = Math.hypot(end[0] - u.x, end[1] - u.z);
+    if (left > u.progD - 0.3) u.stuck += 1; else { u.stuck = 0; u.stuckN = 0; }
+    u.progD = Math.min(u.progD, left);
+    if (u.stuck >= 2) {
+      u.stuck = 0; u.stuckN = (u.stuckN || 0) + 1;
+      if (left < 1.8) { u.path = null; u.moving = false; return true; }   // close enough: someone's parked on it
+      const around = findPathAround(u, end[0], end[1]);
+      // second time stuck in a row: back off to a free spot to the side first
+      if (u.stuckN >= 2) {
+        const sp = sideSpot(u, dx / d, dz / d);
+        if (sp) { const rest = findPath(sp[0], sp[1], end[0], end[1]); u.path = [sp, ...(rest || [])]; u.pathI = 0; u.stuckN = 0; return false; }
+      }
+      if (around) { u.path = around; u.pathI = 0; }
+    }
   }
   return false;
+}
+function sideSpot(u, dx, dz) {
+  const opts = [[dz, -dx], [-dz, dx], [-dx + dz, -dz - dx], [-dx - dz, -dz + dx], [-dx, -dz]];
+  if (u.id % 2) opts.splice(0, 2, opts[1], opts[0]);
+  for (const [ox, oz] of opts) {
+    const l = Math.hypot(ox, oz), x = u.x + ox / l * 1.3, z = u.z + oz / l * 1.3;
+    if (blockedAt(x, z)) continue;
+    let busy = false; forUnitsNear(x, z, 1, o => { if (o !== u && Math.hypot(o.x - x, o.z - z) < o.def.radius + u.def.radius) busy = true; });
+    if (!busy) return [x, z];
+  }
+  return null;
 }
 
 function findTarget(u, range) {
@@ -1285,10 +1388,38 @@ function nearestTuna(fromX, fromZ, hv, maxR = 40) {
 function nearestRefinery(u) {
   let best = null, bd = 1e9;
   for (const e of entities) if (!e.dead && e.isBuilding && e.team === u.team && e.key === 'refinery' && e.built >= 1) {
-    const d = Math.hypot(e.x - u.x, e.z - u.z); if (d < bd) { bd = d; best = e; }
+    let d = Math.hypot(e.x - u.x, e.z - u.z);
+    for (const o of entities) if (o !== u && o.key === 'harvester' && !o.dead && o.ref === e && (o.hs === 'toDock' || o.hs === 'queue' || o.hs === 'unload')) d += 5;
+    if (d < bd) { bd = d; best = e; }
   }
   return best;
 }
+// One harvester at a time on a refinery's dock; the rest queue nearby.
+function dockFree(ref, u) {
+  if (ref.dockUser === u.id) return true;   // it's ours already
+  const o = byId.get(ref.dockUser);
+  if (o && o !== u && !o.dead && o.ref === ref && o.state === 'harvest' && (o.hs === 'toDock' || o.hs === 'unload')) return false;
+  // first come, first served: anyone who's been queueing longer goes first
+  const mine = u.hs === 'queue' ? u.queuedAt : Infinity;
+  for (const q of entities) if (q !== u && !q.dead && q.hs === 'queue' && q.state === 'harvest' && q.ref === ref && q.queuedAt < mine) return false;
+  return true;
+}
+function queueSpot(u, ref) {
+  const dx = ref.tx + 1, dz = ref.tz + ref.h;
+  let best = null, bd = 1e9;
+  for (let r = 2; r <= 4 && !best; r++)
+    for (let z = dz - r; z <= dz + r; z++) for (let x = dx - r; x <= dx + r; x++) {
+      if (Math.max(Math.abs(x - dx), Math.abs(z - dz)) !== r || isBlocked(x, z) || isDockTile(x, z)) continue;
+      if (x === dx && z > dz) continue;   // keep the lane straight out of the dock clear
+      let taken = false;
+      for (const o of entities) if (o !== u && o.isUnit && !o.dead && ((o.parkX === x + 0.5 && o.parkZ === z + 0.5) || (Math.floor(o.x) === x && Math.floor(o.z) === z && !o.moving))) { taken = true; break; }
+      if (taken) continue;
+      const d = Math.hypot(x + 0.5 - u.x, z + 0.5 - u.z);
+      if (d < bd) { bd = d; best = [x + 0.5, z + 0.5]; }
+    }
+  return best;
+}
+function headForDock(u) { const d = dockOf(u.ref); u.ref.dockUser = u.id; u.parkX = u.parkZ = undefined; u.path = findPath(u.x, u.z, d.x, d.z); u.pathI = 0; u.hs = 'toDock'; }
 function releaseReservation(u) { if (u.res !== undefined && reserved[u.res] === u.id) reserved[u.res] = 0; u.res = undefined; }
 
 function updateHarvester(u, dt) {
@@ -1307,8 +1438,8 @@ function updateHarvester(u, dt) {
       if (tuna[u.res] <= 0) { u.hs = 'seek'; break; }
       if (followPath(u, dt)) {
         const tx = u.res % N, tz = (u.res / N) | 0;
-        if (Math.floor(u.x) === tx && Math.floor(u.z) === tz) { u.hs = 'mining'; u.hsT = 0.5; }
-        else u.hs = 'seek';
+        if (Math.hypot(tx + 0.5 - u.x, tz + 0.5 - u.z) < 0.8) { u.hs = 'mining'; u.hsT = 0.5; }
+        else { releaseReservation(u); u.hs = 'seek'; }
       }
       break;
     }
@@ -1333,11 +1464,26 @@ function updateHarvester(u, dt) {
     }
     case 'toDock': {
       if (!u.ref || u.ref.dead) { u.hs = 'toRef'; break; }
+      const d = dockOf(u.ref), dd = Math.hypot(d.x - u.x, d.z - u.z);
+      if (dd < 5) {
+        if (dockFree(u.ref, u)) u.ref.dockUser = u.id;
+        else {   // someone else is on the dock: wait in the queue
+          const q = queueSpot(u, u.ref);
+          u.hs = 'queue'; u.hsT = 0.4; u.queuedAt = time;
+          if (q) { u.parkX = q[0]; u.parkZ = q[1]; u.path = findPath(u.x, u.z, q[0], q[1]); u.pathI = 0; } else u.path = null;
+          break;
+        }
+      }
       if (followPath(u, dt)) {
-        const d = dockOf(u.ref);
         if (Math.hypot(d.x - u.x, d.z - u.z) < 0.9) { u.hs = 'unload'; u.hsT = 0.1; }
         else { u.hs = 'wait'; u.hsT = 1; u.after = 'toRef'; }
       }
+      break;
+    }
+    case 'queue': {
+      if (!u.ref || u.ref.dead) { u.parkX = u.parkZ = undefined; u.hs = 'toRef'; break; }
+      if (u.hsT <= 0) { u.hsT = 0.3; if (dockFree(u.ref, u)) { headForDock(u); break; } }
+      if (u.path) { if (followPath(u, dt)) u.path = null; } else u.moving = false;
       break;
     }
     case 'unload': {
@@ -1349,7 +1495,7 @@ function updateHarvester(u, dt) {
       u.cargo -= amt;
       const T = teams[u.team];
       T.credits += amt * (u.team === ENEMY ? AI.income : 1); T.stats.harvested += amt;
-      if (u.cargo <= 0) { u.cargo = 0; u.hs = 'seek'; }
+      if (u.cargo <= 0) { u.cargo = 0; u.hs = 'seek'; if (u.ref && u.ref.dockUser === u.id) u.ref.dockUser = 0; }
       break;
     }
     case 'wait': default: {
@@ -2707,6 +2853,7 @@ function simTick(dt) {
   for (const e of entities) { e.px = e.x; e.pz = e.z; e.prot = e.rot; }
   for (const T of teams) updateProduction(T, dt);
   updateAI(dt);
+  buildUnitGrid();
   for (const e of entities) {
     if (e.dead) { if (e.dying > 0) e.dying -= dt; continue; }
     if (e.isUnit) updateUnit(e, dt); else updateBuilding(e, dt);
@@ -2719,25 +2866,26 @@ function simTick(dt) {
 }
 let visT = 0;
 
+const parked = u => u.mining || u.hs === 'unload' || u.hs === 'queue' && !u.moving;
 function separate() {
-  const us = entities.filter(e => e.isUnit && !e.dead);
-  for (let i = 0; i < us.length; i++) {
-    const a = us[i];
-    for (let j = i + 1; j < us.length; j++) {
-      const b = us[j];
+  buildUnitGrid();
+  for (const a of ugList) {
+    if (a.dead) continue;
+    forUnitsNear(a.x, a.z, 1.3, b => {
+      if (b.id <= a.id || b.dead) return;
       const dx = b.x - a.x, dz = b.z - a.z, rs = a.def.radius + b.def.radius;
-      if (Math.abs(dx) > rs || Math.abs(dz) > rs) continue;
+      if (Math.abs(dx) > rs || Math.abs(dz) > rs) return;
       let d2 = dx * dx + dz * dz;
-      if (d2 >= rs * rs) continue;
+      if (d2 >= rs * rs) return;
       let d = Math.sqrt(d2), nx, nz;
       if (d < 1e-4) { const an = Math.random() * 6.28; nx = Math.cos(an); nz = Math.sin(an); d = 0; } else { nx = dx / d; nz = dz / d; }
       const ov = (rs - d) * 0.35;
       let wa = 0.5;
       if (a.moving && !b.moving) wa = 0.2; else if (!a.moving && b.moving) wa = 0.8;
-      if (a.mining || a.hs === 'unload') wa = 0.05; if (b.mining || b.hs === 'unload') wa = 0.95;
+      if (parked(a)) wa = 0.05; if (parked(b)) wa = 0.95;
       tryMove(a, -nx * ov * wa * 2, -nz * ov * wa * 2);
       tryMove(b, nx * ov * (1 - wa) * 2, nz * ov * (1 - wa) * 2);
-    }
+    });
   }
 }
 
@@ -2983,6 +3131,9 @@ window.__game = {
   screenOf: id => { const e = byId.get(id); return e && toScreen(e.x, 0.3, e.z); },
   get selected() { return sel.map(e => e.id); },
   get placing() { return placing; },
+  blocked: (x, z) => isBlocked(x, z),
+  order: (id, x, z) => { const u = byId.get(id); if (u) orderMove(u, x, z); },
+  harvest: id => { const u = byId.get(id); if (u) orderHarvest(u); },
   place: (key, tx, tz) => { if (canPlace(PLAYER, key, tx, tz)) { placeStructure(PLAYER, key, tx, tz); return true; } return false; },
 };
 </script>

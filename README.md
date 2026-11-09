@@ -7,6 +7,7 @@ Open `index.html` in a desktop browser and it runs. There's no build step and no
 ## How it plays
 
 - **Tuna** is the money. Your Roomba Harvester scoops up spilled tuna cans and drives them back to a Litter Tray Refinery.
+  Only one harvester can unload at a refinery at a time; the others wait their turn close by, so a second refinery helps once you have three or four.
 - **Power** comes from Treadmill Generators (a cat on a hamster wheel). Most buildings draw power. If you run short, building slows down and Laser Pointer Towers switch off.
 - **Building** works like the old classics. Click a structure in the sidebar and it's built over time, paid for as it goes. When it says READY, click it again and place it on the map, close to your other buildings. Units queue up at the barracks or the factory.
 - **Fog of war.** You only see what your troops and buildings can see. Ground you've explored but aren't watching stays dim.
@@ -88,6 +89,7 @@ grep -nE '^// [A-Z][A-Z ,:()-]{5,}$' index.html
 - Models are built from boxes and cylinders in the MODEL TOOLKIT section (`makeCat`, `makeRoomba`, `makeBuildingModel`). Sidebar icons are rendered from the same models when the page loads.
 - Each side has a team colour (`team` in `TEAM`): green for the tabbies, red for the Sphynx. It's on every unit's scarf, hat band or rim stripe, and on the ring under its feet, so keep it on anything new you add.
 - Units should be easy to tell apart from the game camera by shape alone: rifle cats have a helmet and a long rifle, grenadiers a wide hat and a drum on their back, tanks have tracks, harvesters a bin and a scoop. Check new art with `tests/unit_sheet.py`.
+- Getting about is in UNIT BEHAVIOUR: units follow an A* path, look ahead and pass oncoming units on their right, slow down behind slower ones, and ask idle friends in the way to step aside. A unit that stops getting closer for two seconds finds a way round the crowd, then backs off to one side. Run `tests/jam.py` after changing any of it.
 - Battle effects (muzzle flashes, hit flashes, sparks, wrecks, rubble, order lines) live in COMBAT, PROJECTILES AND EFFECTS.
 - The map is 96 x 96 tiles and one tile is one world unit.
 - Difficulty settings are in `DIFFICULTY`.
@@ -101,9 +103,10 @@ pip install playwright --break-system-packages && python3 -m playwright install 
 python3 tests/smoke.py 6 out      # six game minutes of a do-nothing player; prints each side's forces every minute
 python3 tests/flow.py out         # builds and places a barracks, trains troops, box-selects and moves them with real clicks, then checks the trackpad controls
 python3 tests/touch.py out        # phone sizes, upright and sideways: layout fits, tap, drag, pinch, placing, minimap
+python3 tests/jam.py out          # traffic: units meeting head-on, crossing, driving through a crowd, four harvesters sharing a refinery
 python3 tests/unit_sheet.py out   # pictures, not a pass/fail test: every unit for both sides, a shot being fired, and units dying
 ```
 
-The first three fail on any page or console error. Screenshots land in the folder you name (`out` above), and `*.png` is git-ignored.
+All but `unit_sheet.py` fail on any page or console error. Screenshots land in the folder you name (`out` above), and `*.png` is git-ignored.
 
 The page exposes `window.__game` for tests: `step(seconds)` runs the simulation, `reveal(true)` lifts the fog, and there are `select`, `command`, `queue` and `place` helpers.
