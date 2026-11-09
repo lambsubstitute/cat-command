@@ -86,6 +86,9 @@ grep -nE '^// [A-Z][A-Z ,:()-]{5,}$' index.html
 
 - Unit and structure stats live in `DEFS` and `WEAPONS` near the top.
 - Models are built from boxes and cylinders in the MODEL TOOLKIT section (`makeCat`, `makeRoomba`, `makeBuildingModel`). Sidebar icons are rendered from the same models when the page loads.
+- Each side has a team colour (`team` in `TEAM`): green for the tabbies, red for the Sphynx. It's on every unit's scarf, hat band or rim stripe, and on the ring under its feet, so keep it on anything new you add.
+- Units should be easy to tell apart from the game camera by shape alone: rifle cats have a helmet and a long rifle, grenadiers a wide hat and a drum on their back, tanks have tracks, harvesters a bin and a scoop. Check new art with `tests/unit_sheet.py`.
+- Battle effects (muzzle flashes, hit flashes, sparks, wrecks, rubble, order lines) live in COMBAT, PROJECTILES AND EFFECTS.
 - The map is 96 x 96 tiles and one tile is one world unit.
 - Difficulty settings are in `DIFFICULTY`.
 
@@ -98,8 +101,9 @@ pip install playwright --break-system-packages && python3 -m playwright install 
 python3 tests/smoke.py 6 out      # six game minutes of a do-nothing player; prints each side's forces every minute
 python3 tests/flow.py out         # builds and places a barracks, trains troops, box-selects and moves them with real clicks, then checks the trackpad controls
 python3 tests/touch.py out        # phone sizes, upright and sideways: layout fits, tap, drag, pinch, placing, minimap
+python3 tests/unit_sheet.py out   # pictures, not a pass/fail test: every unit for both sides, a shot being fired, and units dying
 ```
 
-All three fail on any page or console error. Screenshots land in the folder you name (`out` above), and `*.png` is git-ignored.
+The first three fail on any page or console error. Screenshots land in the folder you name (`out` above), and `*.png` is git-ignored.
 
 The page exposes `window.__game` for tests: `step(seconds)` runs the simulation, `reveal(true)` lifts the fog, and there are `select`, `command`, `queue` and `place` helpers.
