@@ -64,9 +64,10 @@ with sync_playwright() as p:
     # 4. box-select everything on screen and right-click a destination
     pg.evaluate('__game.cam.x = 17; __game.cam.z = 77; __game.cam.dist = __game.cam.distT = 26')
     pg.wait_for_timeout(300)
-    pg.mouse.move(view['x'] + 10, view['y'] + 10)
+    # (start well inside the 14 px edge-scroll zone, or the camera pans before the drag begins)
+    pg.mouse.move(view['x'] + 40, view['y'] + 40)
     pg.mouse.down()
-    pg.mouse.move(view['x'] + view['width'] - 10, view['y'] + view['height'] - 10, steps=5)
+    pg.mouse.move(view['x'] + view['width'] - 40, view['y'] + view['height'] - 40, steps=5)
     pg.mouse.up()
     try: pg.wait_for_function('__game.selected.length > 0', timeout=3000)
     except Exception: pass

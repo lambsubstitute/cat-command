@@ -472,39 +472,99 @@ function flagMat(team) {
     shroudify(new THREE.MeshLambertMaterial({ map: flagTex(team), side: THREE.DoubleSide }))), matCache.get('flag' + team));
 }
 
+// rounded boxes and capsules take the corners off everything
+function roundedBox(w, h, d, r, seg = 3) {
+  r = Math.min(r, w / 2, h / 2, d / 2);
+  const g = new THREE.BoxGeometry(w, h, d, seg, seg, seg), p = g.attributes.position;
+  const hw = w / 2 - r, hh = h / 2 - r, hd = d / 2 - r, v = new THREE.Vector3(), c = new THREE.Vector3();
+  for (let i = 0; i < p.count; i++) {
+    v.fromBufferAttribute(p, i);
+    c.set(clamp(v.x, -hw, hw), clamp(v.y, -hh, hh), clamp(v.z, -hd, hd));
+    v.sub(c); if (v.lengthSq() > 1e-9) v.normalize().multiplyScalar(r); v.add(c);
+    p.setXYZ(i, v.x, v.y, v.z);
+  }
+  g.computeVertexNormals();
+  return g;
+}
+const RBox = (w, h, d, r, s = 3) => G(`r${w},${h},${d},${r},${s}`, () => roundedBox(w, h, d, r, s));
+const Cap = (r, l, s = 4, rs = 10) => G(`cap${r},${l},${s},${rs}`, () => new THREE.CapsuleGeometry(r, l, s, rs));
+const Arc = (r, t, arc) => G(`arc${r},${t},${arc}`, () => new THREE.TorusGeometry(r, t, 5, 14, arc));
+// smooth-shaded material, for fur and plastic
+const smoothCache = new Map();
+function SM(color) {
+  let m = smoothCache.get(color);
+  if (!m) { m = shroudify(new THREE.MeshLambertMaterial({ color })); smoothCache.set(color, m); }
+  return m;
+}
+
+// ---- cardboard: a corrugated brown texture, tape, and printed labels
+function cardboardTex() {
+  if (texCache.card) return texCache.card;
+  const S = 128, c = document.createElement('canvas'); c.width = c.height = S;
+  const g = c.getContext('2d'), r = mulberry32(11);
+  g.fillStyle = '#b68a56'; g.fillRect(0, 0, S, S);
+  for (let y = 0; y < S; y += 4) { g.fillStyle = y % 8 ? 'rgba(90,60,30,0.10)' : 'rgba(255,230,190,0.10)'; g.fillRect(0, y, S, 2); }
+  for (let i = 0; i < 500; i++) { g.fillStyle = r() < 0.5 ? 'rgba(70,45,20,0.12)' : 'rgba(255,235,200,0.12)'; g.fillRect(r() * S, r() * S, 1 + r() * 3, 1 + r() * 2); }
+  for (let i = 0; i < 6; i++) { g.strokeStyle = 'rgba(60,40,20,0.25)'; g.lineWidth = 1; g.beginPath(); g.moveTo(r() * S, r() * S); g.lineTo(r() * S, r() * S); g.stroke(); }
+  const t = new THREE.CanvasTexture(c); t.colorSpace = THREE.SRGBColorSpace; t.wrapS = t.wrapT = THREE.RepeatWrapping;
+  return texCache.card = t;
+}
+function cardMat() { return matCache.get('card') || (matCache.set('card', shroudify(new THREE.MeshLambertMaterial({ map: cardboardTex() }))), matCache.get('card')); }
+const TAPE = 0xd9caa3, CARD_EDGE = 0xc7a071, CARD_DARK = 0x8e6a40;
+function labelTex(text, bg, fg, big) {
+  const k = 'lbl' + text + bg; if (texCache[k]) return texCache[k];
+  const c = document.createElement('canvas'); c.width = 128; c.height = 64;
+  const g = c.getContext('2d');
+  g.fillStyle = bg; g.fillRect(0, 0, 128, 64);
+  g.strokeStyle = fg; g.lineWidth = 3; g.strokeRect(4, 4, 120, 56);
+  g.fillStyle = fg; g.font = `bold ${big ? 26 : 18}px "Courier New", monospace`; g.textAlign = 'center'; g.textBaseline = 'middle';
+  g.fillText(text, 64, 33);
+  const t = new THREE.CanvasTexture(c); t.colorSpace = THREE.SRGBColorSpace;
+  return texCache[k] = t;
+}
+function label(text, w, parent, x, y, z, ry = 0, bg = '#e8dcc0', fg = '#3a2a18', big = false) {
+  const m = new THREE.Mesh(G('pl2', () => new THREE.PlaneGeometry(1, 0.5)), shroudify(new THREE.MeshLambertMaterial({ map: labelTex(text, bg, fg, big) })));
+  m.scale.set(w, w, 1); m.position.set(x, y, z); m.rotation.y = ry; parent.add(m); return m;
+}
+// a strip of parcel tape
+function tape(parent, w, d, x, y, z, ry = 0) { const t = part(Box(w, 0.012, d), TAPE, x, y, z, parent); t.rotation.y = ry; t.castShadow = false; return t; }
+
 function catHead(team, hat, parent, x, y, z) {
   const T = TEAM[team], head = new THREE.Group(), sph = team === ENEMY;
   head.position.set(x, y, z); parent.add(head);
-  part(Box(0.25, 0.21, 0.21), T.fur, 0, 0, 0.02, head);
-  part(Box(0.31, 0.1, 0.15), T.fur, 0, -0.06, 0.03, head);             // fluffy cheeks
-  part(Box(0.13, 0.07, 0.06), T.belly, 0, -0.06, 0.13, head);           // muzzle
-  part(Box(0.05, 0.035, 0.02), 0x3a2224, 0, -0.03, 0.163, head);        // nose
+  const fur = SM(T.fur);
+  part(RBox(0.27, 0.22, 0.23, 0.09), fur, 0, 0, 0.01, head);
+  for (const s of [-1, 1]) { const ch = part(Sph(0.085, 10, 8), fur, s * 0.1, -0.05, 0.05, head); ch.scale.set(1.05, 0.8, 0.9); }   // fluffy cheeks
+  const mz = part(Sph(0.07, 10, 8), SM(T.belly), 0, -0.055, 0.125, head); mz.scale.set(1.15, 0.7, 0.8);                           // muzzle
+  const nose = part(Sph(0.026, 8, 6), SM(0x3a2224), 0, -0.025, 0.17, head); nose.scale.set(1.2, 0.8, 0.7);
   const er = sph ? [0.085, 0.2] : [0.07, 0.15];
   const capped = hat === 'helmet' || hat === 'hardhat' || hat === 'boonie';
   for (const s of [-1, 1]) {
     // ears stick out past any hat so the cat shape reads from above
-    const ear = new THREE.Group(); ear.position.set(s * (capped ? 0.105 : 0.08), 0.11, -0.01);
-    ear.rotation.z = -s * (capped ? 0.55 : sph ? 0.38 : 0.2); head.add(ear);
-    const e = part(Cone(er[0], er[1], 4), T.fur, 0, er[1] / 2, 0, ear); e.rotation.y = Math.PI / 4;
-    const inner = part(Cone(er[0] * 0.55, er[1] * 0.7, 4), sph ? 0xc98a86 : 0xd99a8a, 0, er[1] * 0.38, 0.03, ear); inner.rotation.y = Math.PI / 4;
-    part(Box(0.065, 0.05, 0.02), T.eyes, s * 0.062, 0.025, 0.125, head);
-    part(Box(0.022, 0.05, 0.022), 0x111111, s * 0.062, 0.025, 0.128, head);
-    part(Box(0.016, 0.016, 0.01), 0xffffff, s * 0.072, 0.04, 0.14, head);
-    for (const wy of [-0.05, -0.075]) part(Box(0.09, 0.008, 0.008), 0xeeeeee, s * 0.13, wy, 0.12, head);
+    const ear = new THREE.Group(); ear.position.set(s * (capped ? 0.105 : 0.085), 0.1, -0.01);
+    ear.rotation.z = -s * (capped ? 0.55 : sph ? 0.38 : 0.22); head.add(ear);
+    const e = part(Cone(er[0], er[1], 5), fur, 0, er[1] / 2, 0, ear);
+    part(Cone(er[0] * 0.55, er[1] * 0.7, 5), SM(sph ? 0xc98a86 : 0xd99a8a), 0, er[1] * 0.38, 0.03, ear);
+    const eye = part(Sph(0.036, 8, 6), SM(T.eyes), s * 0.065, 0.025, 0.118, head); eye.scale.set(1, 0.9, 0.5);
+    part(Box(0.018, 0.045, 0.02), 0x111111, s * 0.065, 0.025, 0.133, head);
+    part(Sph(0.009, 5, 4), SM(0xffffff), s * 0.075, 0.04, 0.138, head);
+    for (const wy of [-0.05, -0.075]) part(Box(0.1, 0.006, 0.006), 0xeeeeee, s * 0.14, wy, 0.12, head);
   }
   if (hat === 'helmet') {
-    const h = part(Dome(0.135), T.gear, 0, 0.08, -0.005, head); h.scale.set(1, 0.68, 1.08);
-    part(Box(0.27, 0.025, 0.06), T.gear2, 0, 0.08, 0.12, head);
-    part(Box(0.05, 0.04, 0.02), T.team, 0, 0.125, 0.13, head);
+    const h = part(Dome(0.14), SM(T.gear), 0, 0.075, -0.005, head); h.scale.set(1, 0.7, 1.08);
+    part(Arc(0.14, 0.012, Math.PI), T.gear2, 0, 0.08, 0.0, head).rotation.set(Math.PI / 2, 0, 0);
+    part(RBox(0.05, 0.035, 0.02, 0.008), T.team, 0, 0.13, 0.135, head);
   } else if (hat === 'beret') {
-    const b = part(Cyl(0.135, 0.135, 0.05, 10), T.accent, 0.03, 0.125, -0.01, head); b.rotation.z = 0.3;
+    const b = part(Sph(0.15, 12, 8), SM(T.accent), 0.03, 0.1, -0.01, head); b.scale.set(1, 0.4, 1); b.rotation.z = 0.3;
+    part(Sph(0.012, 5, 4), SM(0x222222), 0.03, 0.16, -0.01, head);
     part(Box(0.03, 0.03, 0.01), 0xd8c060, -0.06, 0.13, 0.12, head);
   } else if (hat === 'boonie') {
-    part(Cyl(0.2, 0.2, 0.02, 12), T.gear2, 0, 0.1, 0, head);
-    part(Cyl(0.11, 0.12, 0.08, 10), T.gear2, 0, 0.145, 0, head);
-    part(Cyl(0.123, 0.123, 0.025, 10), T.team, 0, 0.12, 0, head);
+    const brim = part(Cyl(0.2, 0.21, 0.02, 16), T.gear2, 0, 0.1, 0, head); brim.rotation.x = 0.1;
+    part(Cyl(0.11, 0.125, 0.08, 12), T.gear2, 0, 0.145, 0, head);
+    part(Cyl(0.127, 0.127, 0.025, 12), T.team, 0, 0.12, 0, head);
   } else if (hat === 'hardhat') {
-    const h = part(Dome(0.135), 0xd8b030, 0, 0.08, 0, head); h.scale.set(1, 0.8, 1);
+    const h = part(Dome(0.14), SM(0xd8b030), 0, 0.075, 0, head); h.scale.set(1, 0.8, 1);
+    part(Cyl(0.15, 0.15, 0.015, 12), 0xd8b030, 0, 0.075, 0, head);
     part(Box(0.27, 0.05, 0.03), 0x222222, 0, 0.04, 0.125, head);
   }
   return head;
@@ -513,47 +573,50 @@ function catHead(team, hat, parent, x, y, z) {
 function makeCat(team, o = {}) {
   const T = TEAM[team], g = new THREE.Group(), body = new THREE.Group(), sph = team === ENEMY;
   g.add(body);
-  part(Box(0.27, 0.21, 0.36), T.fur, 0, 0.3, -0.01, body);
-  part(Box(0.23, 0.19, 0.12), T.fur, 0, 0.29, -0.22, body);             // rounded haunches
-  part(Box(0.21, 0.05, 0.34), T.belly, 0, 0.195, -0.02, body);
-  if (!sph) for (const z of [-0.2, -0.08, 0.04]) part(Box(0.28, 0.03, 0.05), T.fur2, 0, 0.41, z, body);
-  else part(Box(0.28, 0.022, 0.04), T.fur2, 0, 0.41, -0.12, body);
+  const fur = SM(T.fur);
+  const torso = part(Cap(0.13, 0.2), fur, 0, 0.3, -0.03, body); torso.rotation.x = Math.PI / 2; torso.scale.set(1.05, 0.85, 1);
+  const haunch = part(Sph(0.135, 12, 9), fur, 0, 0.28, -0.2, body); haunch.scale.set(1, 0.85, 0.9);        // rounded haunches
+  const belly = part(Cap(0.1, 0.18), SM(T.belly), 0, 0.22, -0.02, body); belly.rotation.x = Math.PI / 2; belly.scale.set(1, 0.55, 1);
+  if (!sph) for (const z of [-0.2, -0.09, 0.03]) { const st = part(Arc(0.125, 0.014, Math.PI * 0.8), T.fur2, 0, 0.3, z, body); st.rotation.set(0, 0, Math.PI * 0.1); st.scale.set(1.05, 0.9, 1); }
+  else part(Arc(0.125, 0.01, Math.PI * 0.7), T.fur2, 0, 0.3, -0.12, body).rotation.set(0, 0, Math.PI * 0.15);
   if (o.vest !== false) {
-    part(Box(0.3, 0.16, 0.19), T.gear, 0, 0.31, 0.05, body);
-    part(Box(0.07, 0.07, 0.09), T.gear2, -0.17, 0.29, 0.03, body);
+    part(RBox(0.31, 0.17, 0.2, 0.05), T.gear, 0, 0.31, 0.05, body);
+    part(RBox(0.08, 0.07, 0.09, 0.02), T.gear2, -0.17, 0.29, 0.03, body);
+    part(RBox(0.1, 0.05, 0.06, 0.015), T.gear2, 0.05, 0.4, 0.06, body);
   }
-  if (o.scarf !== false && o.vest !== false) part(Box(0.29, 0.07, 0.09), T.team, 0, 0.415, 0.15, body);   // team scarf
+  if (o.scarf !== false && o.vest !== false) { const sc = part(Torus(0.14, 0.04), SM(T.team), 0, 0.42, 0.16, body); sc.rotation.x = Math.PI / 2; sc.scale.set(1, 1, 0.7); }   // team scarf
   const head = catHead(team, o.hat === undefined ? T.hat : o.hat, body, 0, 0.5, 0.24);
   head.scale.setScalar(1.25);
   const legs = [];
   for (const [sx, sz] of [[-1, 1], [1, 1], [-1, -1], [1, -1]]) {
     const lg = new THREE.Group(); lg.position.set(sx * 0.09, 0.21, sz > 0 ? 0.12 : -0.18); body.add(lg);
-    part(Box(0.08, 0.19, 0.08), T.fur2, 0, -0.095, 0, lg);
-    part(Box(0.09, 0.04, 0.1), T.belly, 0, -0.19, 0.01, lg);
+    part(Cap(0.042, 0.11), SM(T.fur2), 0, -0.095, 0, lg);
+    const paw = part(Sph(0.05, 8, 6), SM(T.belly), 0, -0.17, 0.015, lg); paw.scale.set(1, 0.6, 1.1);
     legs.push(lg);
   }
   // tail curls up and over, so it shows from the game camera
-  const tail = new THREE.Group(); tail.position.set(0, 0.35, -0.27); body.add(tail); tail.rotation.x = -0.45;
-  const tr = sph ? 0.016 : 0.03;
-  part(Cyl(tr, tr * 1.3, 0.24, 6), T.fur, 0, 0.12, 0, tail);
+  const tail = new THREE.Group(); tail.position.set(0, 0.35, -0.3); body.add(tail); tail.rotation.x = -0.45;
+  const tr = sph ? 0.018 : 0.032;
+  part(Cap(tr, 0.2), fur, 0, 0.12, 0, tail);
   const tip = new THREE.Group(); tip.position.set(0, 0.23, 0); tail.add(tip); tip.rotation.x = 1.0;
-  part(Cyl(tr * 0.8, tr, 0.18, 6), sph ? T.fur : T.fur2, 0, 0.09, 0, tip);
+  part(Cap(tr * 0.9, 0.12), SM(sph ? T.fur : T.fur2), 0, 0.08, 0, tip);
   let gun = null;
   if (o.weapon === 'rifle') {
     gun = new THREE.Group(); gun.position.set(0.17, 0.36, 0.1); body.add(gun);
-    part(Box(0.045, 0.065, 0.5), 0x26282a, 0, 0, 0.06, gun);
-    part(Box(0.035, 0.1, 0.06), 0x26282a, 0, -0.06, -0.02, gun);
-    part(Box(0.035, 0.05, 0.14), 0x4a3b2a, 0, -0.01, -0.24, gun);
-    part(Box(0.03, 0.04, 0.12), 0x111111, 0, 0.05, 0.04, gun);
+    part(RBox(0.045, 0.065, 0.5, 0.015), 0x26282a, 0, 0, 0.06, gun);
+    part(RBox(0.035, 0.1, 0.06, 0.012), 0x26282a, 0, -0.06, -0.02, gun);
+    part(RBox(0.04, 0.055, 0.15, 0.015), 0x4a3b2a, 0, -0.01, -0.24, gun);
+    part(Cyl(0.02, 0.02, 0.12, 8), 0x111111, 0, 0.05, 0.04, gun).rotation.x = Math.PI / 2;
+    part(Cyl(0.012, 0.012, 0.1, 6), 0x111111, 0, 0.0, 0.34, gun).rotation.x = Math.PI / 2;
   } else if (o.weapon === 'launcher') {
     gun = new THREE.Group(); gun.position.set(0.19, 0.47, 0.02); body.add(gun);
-    const t = part(Cyl(0.07, 0.07, 0.46, 8), 0x4c5238, 0, 0, 0, gun); t.rotation.x = Math.PI / 2;
-    const rim = part(Cyl(0.08, 0.08, 0.05, 8), 0x1d1f18, 0, 0, 0.23, gun); rim.rotation.x = Math.PI / 2;
-    part(Box(0.03, 0.08, 0.06), 0x222222, 0, -0.09, 0.05, gun);
+    const t = part(Cyl(0.07, 0.07, 0.46, 12), 0x4c5238, 0, 0, 0, gun); t.rotation.x = Math.PI / 2;
+    const rim = part(Cyl(0.085, 0.085, 0.05, 12), 0x1d1f18, 0, 0, 0.23, gun); rim.rotation.x = Math.PI / 2;
+    part(RBox(0.03, 0.08, 0.06, 0.01), 0x222222, 0, -0.09, 0.05, gun);
     // drum magazine on the back, banded in team colour
-    const drum = part(Cyl(0.11, 0.11, 0.3, 10), 0x5b603d, 0, 0.47, -0.13, body); drum.rotation.z = Math.PI / 2;
-    const band = part(Cyl(0.115, 0.115, 0.06, 10), T.team, 0, 0.47, -0.13, body); band.rotation.z = Math.PI / 2;
-    for (const z of [-0.06, 0.02, 0.1]) part(Cyl(0.03, 0.03, 0.06, 6), 0x7a6a3a, -0.18, 0.3, z, body);
+    const drum = part(Cyl(0.11, 0.11, 0.3, 14), 0x5b603d, 0, 0.47, -0.13, body); drum.rotation.z = Math.PI / 2;
+    const band = part(Cyl(0.115, 0.115, 0.06, 14), T.team, 0, 0.47, -0.13, body); band.rotation.z = Math.PI / 2;
+    for (const z of [-0.06, 0.02, 0.1]) part(Cap(0.028, 0.03), SM(0x7a6a3a), -0.18, 0.3, z, body);
   }
   if (gun) gun.userData.z0 = gun.position.z;
   return { group: g, body, head, legs, tail, tip, gun };
@@ -561,38 +624,38 @@ function makeCat(team, o = {}) {
 
 function makeRoomba(team, kind) {
   const T = TEAM[team], g = new THREE.Group(), a = { group: g };
-  part(Cyl(0.46, 0.48, 0.13, 18), 0x2c2d31, 0, 0.11, 0, g);
-  part(Cyl(0.49, 0.49, 0.05, 18), 0x141414, 0, 0.08, 0, g);
-  part(Cyl(0.45, 0.45, 0.03, 18), T.team, 0, 0.185, 0, g);              // team stripe round the rim
-  part(Cyl(0.4, 0.42, 0.04, 18), T.gear, 0, 0.2, 0, g);
-  part(Box(0.14, 0.03, 0.05), 0x111111, 0, 0.215, 0.36, g);
-  const led = new THREE.Mesh(Sph(0.035, 6, 4), glow(T.team)); led.position.set(-0.25, 0.225, 0.25); g.add(led);
+  part(Cyl(0.47, 0.48, 0.12, 24), SM(0x2c2d31), 0, 0.11, 0, g);
+  const bump = part(Torus(0.47, 0.035), SM(0x141414), 0, 0.08, 0, g); bump.rotation.x = Math.PI / 2;
+  part(Cyl(0.455, 0.47, 0.03, 24), SM(T.team), 0, 0.185, 0, g);              // team stripe round the rim
+  part(Cyl(0.4, 0.44, 0.04, 24), SM(T.gear), 0, 0.2, 0, g);
+  part(RBox(0.14, 0.03, 0.05, 0.01), 0x111111, 0, 0.215, 0.36, g);
+  const led = new THREE.Mesh(Sph(0.035, 8, 6), glow(T.team)); led.position.set(-0.25, 0.225, 0.25); g.add(led);
   if (kind === 'harvester') {
-    part(Box(0.46, 0.28, 0.34), 0x6b6f6a, 0, 0.34, -0.12, g);
-    part(Box(0.48, 0.04, 0.36), 0x45484a, 0, 0.49, -0.12, g);
-    for (let i = 0; i < 4; i++) part(Box(0.07, 0.05, 0.355), i % 2 ? 0x1c1c1c : 0xd8b030, -0.165 + i * 0.11, 0.26, -0.12, g);
+    part(RBox(0.46, 0.28, 0.34, 0.05), SM(0x6b6f6a), 0, 0.34, -0.12, g);
+    part(RBox(0.5, 0.05, 0.38, 0.02), 0x45484a, 0, 0.49, -0.12, g);
+    for (let i = 0; i < 4; i++) part(Box(0.07, 0.05, 0.36), i % 2 ? 0x1c1c1c : 0xd8b030, -0.165 + i * 0.11, 0.26, -0.12, g);
     a.cargo = part(Box(0.4, 0.2, 0.3), 0xa8bfd2, 0, 0.28, -0.12, g); a.cargo.scale.y = 0.01;
     const bc = new THREE.Group(); bc.position.set(0.17, 0.53, -0.25); g.add(bc); a.beacon = bc;
-    part(Cyl(0.035, 0.04, 0.03, 6), 0x222222, 0, 0, 0, bc);
-    const bl = new THREE.Mesh(Box(0.05, 0.06, 0.05), glow(0xffa020)); bl.position.y = 0.045; bc.add(bl);
-    part(Box(0.78, 0.07, 0.12), 0x8a8d84, 0, 0.12, 0.5, g);
-    for (let i = 0; i < 5; i++) part(Box(0.05, 0.04, 0.06), 0x6a6d64, -0.3 + i * 0.15, 0.1, 0.58, g);
+    part(Cyl(0.035, 0.04, 0.03, 8), 0x222222, 0, 0, 0, bc);
+    const bl = new THREE.Mesh(RBox(0.05, 0.06, 0.05, 0.015), glow(0xffa020)); bl.position.y = 0.045; bc.add(bl);
+    part(RBox(0.78, 0.07, 0.12, 0.025), SM(0x8a8d84), 0, 0.12, 0.5, g);
+    for (let i = 0; i < 5; i++) part(RBox(0.05, 0.045, 0.06, 0.012), 0x6a6d64, -0.3 + i * 0.15, 0.1, 0.58, g);
     a.brushes = [];
-    for (const s of [-1, 1]) { const b = part(Cyl(0.09, 0.09, 0.02, 6), 0xb9a24a, s * 0.36, 0.06, 0.4, g); a.brushes.push(b); }
+    for (const s of [-1, 1]) { const b = part(Cyl(0.09, 0.09, 0.02, 8), 0xb9a24a, s * 0.36, 0.06, 0.4, g); a.brushes.push(b); }
     const h = catHead(team, 'hardhat', g, 0, 0.39, 0.16); h.scale.setScalar(1.1);
   } else {
     for (const s of [-1, 1]) {                                            // tracks make it read as a tank
-      part(Box(0.15, 0.14, 0.86), 0x1e1f1c, s * 0.45, 0.1, 0, g);
-      part(Box(0.16, 0.03, 0.88), T.gear2, s * 0.45, 0.18, 0, g);
-      for (const z of [-0.3, 0, 0.3]) { const w = part(Cyl(0.06, 0.06, 0.16, 8), 0x3a3a36, s * 0.45, 0.07, z, g); w.rotation.z = Math.PI / 2; }
+      part(RBox(0.15, 0.14, 0.86, 0.05), SM(0x1e1f1c), s * 0.45, 0.1, 0, g);
+      part(RBox(0.16, 0.03, 0.88, 0.012), T.gear2, s * 0.45, 0.18, 0, g);
+      for (const z of [-0.3, 0, 0.3]) { const w = part(Cyl(0.06, 0.06, 0.17, 10), 0x3a3a36, s * 0.45, 0.07, z, g); w.rotation.z = Math.PI / 2; }
     }
     const tur = new THREE.Group(); tur.position.set(0, 0.22, 0); g.add(tur); a.turret = tur;
-    part(Box(0.4, 0.15, 0.42), T.gear2, 0, 0.075, -0.02, tur);
-    part(Box(0.34, 0.03, 0.32), T.gear, 0, 0.16, -0.04, tur);
-    part(Box(0.41, 0.035, 0.08), T.team, 0, 0.09, -0.2, tur);
+    part(RBox(0.42, 0.16, 0.44, 0.06), SM(T.gear2), 0, 0.075, -0.02, tur);
+    const cup = part(Dome(0.17), SM(T.gear), 0, 0.14, -0.06, tur); cup.scale.set(1, 0.5, 1);
+    part(RBox(0.41, 0.035, 0.08, 0.012), T.team, 0, 0.1, -0.2, tur);
     const bar = new THREE.Group(); bar.position.set(0, 0.08, 0.2); tur.add(bar); a.barrel = bar;
-    const bm = part(Cyl(0.04, 0.045, 0.62, 7), 0x2a2c26, 0, 0, 0.31, bar); bm.rotation.x = Math.PI / 2;
-    part(Box(0.1, 0.06, 0.08), 0x1a1a1a, 0, 0, 0.62, bar);
+    const bm = part(Cyl(0.04, 0.045, 0.62, 10), SM(0x2a2c26), 0, 0, 0.31, bar); bm.rotation.x = Math.PI / 2;
+    const mb = part(Cyl(0.055, 0.055, 0.1, 10), 0x1a1a1a, 0, 0, 0.6, bar); mb.rotation.x = Math.PI / 2;
     const h = catHead(team, TEAM[team].hat, tur, 0, 0.27, -0.08); h.scale.setScalar(0.85);
     part(Cyl(0.006, 0.006, 0.5, 4), 0x111111, -0.15, 0.38, -0.15, tur);
   }
@@ -606,104 +669,132 @@ function makeUnitModel(key, team) {
 }
 
 function sandbags(g, w, h, gapFront) {
-  const bag = Box(0.36, 0.17, 0.2);
+  const bag = RBox(0.36, 0.17, 0.2, 0.06);
   const hw = w / 2, hh = h / 2;
+  let k = 0;
+  const put = (x, z, ry) => { const b = part(bag, k++ % 2 ? 0x8a7b55 : 0x7f7150, x, 0.09, z, g); b.rotation.y = ry + (hash2(k, 3) - 0.5) * 0.2; };
   for (let x = -hw + 0.2; x <= hw - 0.15; x += 0.38) {
-    if (!(gapFront && Math.abs(x) < 0.6)) part(bag, 0x8a7b55, x, 0.09, hh, g);
-    part(bag, 0x857652, x, 0.09, -hh, g);
+    if (!(gapFront && Math.abs(x) < 0.6)) put(x, hh, 0);
+    put(x, -hh, 0);
   }
-  for (let z = -hh + 0.25; z <= hh - 0.2; z += 0.38) {
-    for (const s of [-1, 1]) { const b = part(bag, 0x8a7b55, s * hw, 0.09, z, g); b.rotation.y = Math.PI / 2; }
-  }
+  for (let z = -hh + 0.25; z <= hh - 0.2; z += 0.38) for (const s of [-1, 1]) put(s * hw, z, Math.PI / 2);
+}
+// a cardboard box with taped edges and a corrugated cut edge showing on top
+function cardBox(parent, w, h, d, x, y, z, o = {}) {
+  const b = part(RBox(w, h, d, 0.03), cardMat(), x, y, z, parent);
+  if (o.tape !== false) { tape(parent, w + 0.02, 0.2, x, y + h / 2 + 0.004, z); tape(parent, 0.2, d + 0.02, x, y + h / 2 + 0.006, z); }
+  if (o.edge !== false) { const e = part(Box(w + 0.01, 0.025, d + 0.01), CARD_EDGE, x, y + h / 2 - 0.02, z, parent); e.castShadow = false; }
+  return b;
 }
 
 function makeBuildingModel(key, team) {
   const T = TEAM[team], g = new THREE.Group(), a = { group: g };
   const [w, h] = DEFS[key].size;
-  const pad = part(Box(w - 0.08, 0.06, h - 0.08), 0x48483f, 0, 0.03, 0, g); pad.castShadow = false;
+  const pad = part(RBox(w - 0.06, 0.08, h - 0.06, 0.03), 0x48483f, 0, 0.03, 0, g); pad.castShadow = false;
+  const stamp = team ? '#b3262a' : '#3c4423';
   if (key === 'hq') {
-    const CB = 0xae8450, CB2 = 0x98703f;
-    part(Box(2.3, 1.3, 2.3), CB, 0, 0.71, 0, g);
-    part(Box(2.32, 0.06, 0.34), 0xc8b88e, 0, 1.33, 0, g);
-    part(Box(0.34, 1.3, 2.32), 0xc8b88e, 0, 0.71, 0, g).scale.set(1, 1, 1);
+    // the Command Box: a big taped-up delivery box with the flaps open
+    part(RBox(2.3, 1.3, 2.3, 0.04), cardMat(), 0, 0.71, 0, g);
     part(Box(2.2, 0.02, 2.2), 0x2a2016, 0, 1.365, 0, g);
+    part(Box(2.32, 0.025, 2.32), CARD_EDGE, 0, 1.35, 0, g).castShadow = false;
     for (const s of [-1, 1]) {
-      const f = part(Box(2.3, 0.6, 0.04), CB2, 0, 1.36 + Math.cos(0.6) * 0.3, s * (1.15 + Math.sin(0.6) * 0.3), g); f.rotation.x = s * 0.6;
-      const f2 = part(Box(0.04, 0.6, 2.3), CB2, s * (1.15 + Math.sin(0.6) * 0.3), 1.36 + Math.cos(0.6) * 0.3, 0, g); f2.rotation.z = -s * 0.6;
+      const f = part(RBox(2.3, 0.6, 0.04, 0.015), cardMat(), 0, 1.36 + Math.cos(0.6) * 0.3, s * (1.15 + Math.sin(0.6) * 0.3), g); f.rotation.x = s * 0.6;
+      const f2 = part(RBox(0.04, 0.6, 2.3, 0.015), cardMat(), s * (1.15 + Math.sin(0.6) * 0.3), 1.36 + Math.cos(0.6) * 0.3, 0, g); f2.rotation.z = -s * 0.6;
     }
+    for (const s of [-1, 1]) { const t = part(Box(0.3, 1.32, 0.012), TAPE, s * 0.75, 0.71, 1.16, g); t.castShadow = false; }
+    part(Box(0.012, 1.32, 2.32), TAPE, -1.16, 0.71, 0.0, g).castShadow = false;
     const paw = new THREE.Mesh(G('pl', () => new THREE.PlaneGeometry(0.9, 0.56)), flagMat(team));
-    paw.position.set(0.65, 0.8, 1.162); g.add(paw);
+    paw.position.set(0.0, 0.85, 1.162); g.add(paw);
+    label('THIS WAY UP', 1.0, g, -0.55, 0.45, 1.163);
+    label('FRAGILE', 1.2, g, 1.162, 0.8, 0.2, Math.PI / 2, '#e8dcc0', stamp, true);
+    label('CAT CMD', 1.2, g, 0.2, 0.8, -1.163, Math.PI, '#e8dcc0', stamp, true);
     sandbags(g, 2.85, 2.85, true);
-    part(Cyl(0.03, 0.045, 1.7, 5), 0x333333, 0.95, 2.1, -0.95, g);
-    a.light = new THREE.Mesh(Sph(0.06, 6, 4), glow(0xff3020)); a.light.position.set(0.95, 2.98, -0.95); g.add(a.light);
+    part(Cyl(0.03, 0.045, 1.7, 6), 0x333333, 0.95, 2.1, -0.95, g);
+    a.light = new THREE.Mesh(Sph(0.06, 8, 6), glow(0xff3020)); a.light.position.set(0.95, 2.98, -0.95); g.add(a.light);
     const dish = new THREE.Group(); dish.position.set(-0.6, 1.4, -0.6); g.add(dish); a.dish = dish;
-    part(Cyl(0.04, 0.04, 0.3, 5), 0x555555, 0, 0.15, 0, dish);
-    const d = part(Cone(0.26, 0.12, 10), 0x8d918a, 0, 0.36, 0.05, dish); d.rotation.x = -2.2;
-    part(Cyl(0.02, 0.02, 1.3, 4), 0x2a2a2a, -0.95, 1.9, 0.95, g);
+    part(Cyl(0.04, 0.04, 0.3, 6), 0x555555, 0, 0.15, 0, dish);
+    const d = part(Cone(0.26, 0.12, 14), SM(0x8d918a), 0, 0.36, 0.05, dish); d.rotation.x = -2.2;
+    part(Cyl(0.02, 0.02, 1.3, 5), 0x2a2a2a, -0.95, 1.9, 0.95, g);
     const fl = new THREE.Mesh(G('flag', () => new THREE.PlaneGeometry(0.55, 0.34)), flagMat(team));
     fl.position.set(-0.67, 2.38, 0.95); g.add(fl); a.flag = fl;
   } else if (key === 'gen') {
-    part(Box(1.8, 0.12, 1.8), 0x5a5a52, 0, 0.06, 0, g);
+    part(RBox(1.8, 0.12, 1.8, 0.04), 0x5a5a52, 0, 0.06, 0, g);
     for (const s of [-1, 1]) {
-      const l1 = part(Box(0.07, 1.25, 0.07), 0x3a3d34, s * 0.5, 0.68, 0.22, g); l1.rotation.x = 0.35;
-      const l2 = part(Box(0.07, 1.25, 0.07), 0x3a3d34, s * 0.5, 0.68, -0.22, g); l2.rotation.x = -0.35;
+      const l1 = part(RBox(0.08, 1.25, 0.08, 0.025), 0x3a3d34, s * 0.5, 0.68, 0.22, g); l1.rotation.x = 0.35;
+      const l2 = part(RBox(0.08, 1.25, 0.08, 0.025), 0x3a3d34, s * 0.5, 0.68, -0.22, g); l2.rotation.x = -0.35;
     }
-    const ax = part(Cyl(0.04, 0.04, 1.1, 6), 0x777777, 0, 1.22, 0, g); ax.rotation.z = Math.PI / 2;
+    const ax = part(Cyl(0.04, 0.04, 1.1, 8), 0x777777, 0, 1.22, 0, g); ax.rotation.z = Math.PI / 2;
     const wheel = new THREE.Group(); wheel.position.set(0, 1.0, 0); g.add(wheel); a.wheel = wheel;
-    for (const s of [-1, 1]) { const t = part(Torus(0.68, 0.05), T.gear, s * 0.3, 0, 0, wheel); t.rotation.y = Math.PI / 2; }
+    for (const s of [-1, 1]) { const t = part(Torus(0.68, 0.05), SM(T.gear), s * 0.3, 0, 0, wheel); t.rotation.y = Math.PI / 2; }
     for (let i = 0; i < 12; i++) {
       const an = i / 12 * Math.PI * 2;
-      const r = part(Box(0.62, 0.04, 0.1), 0x8a7a5a, 0, Math.sin(an) * 0.68, Math.cos(an) * 0.68, wheel); r.rotation.x = -an;
+      const r = part(RBox(0.62, 0.04, 0.1, 0.015), 0x8a7a5a, 0, Math.sin(an) * 0.68, Math.cos(an) * 0.68, wheel); r.rotation.x = -an;
     }
     for (let i = 0; i < 4; i++) { const sp = part(Box(0.03, 1.36, 0.04), 0x555a48, 0.3, 0, 0, wheel); sp.rotation.x = i * Math.PI / 4; }
     const cat = makeCat(team, { hat: 'none', weapon: 'none', vest: false, scarf: false });
     cat.group.position.set(0, 0.36, 0); cat.group.scale.setScalar(1.05); g.add(cat.group); a.cat = cat;
-    part(Box(0.6, 0.5, 0.35), T.gear2, 0, 0.37, -0.72, g);
-    part(Box(0.1, 0.26, 0.02), 0xe8c030, 0, 0.42, -0.535, g);
+    // the battery: a small box marked up in marker pen
+    cardBox(g, 0.62, 0.5, 0.36, 0, 0.37, -0.72);
+    label('BATTERY', 0.4, g, 0, 0.4, -0.535, 0, '#e8dcc0', '#3a2a18');
+    part(Box(0.08, 0.2, 0.02), 0xe8c030, 0.22, 0.42, -0.535, g);
   } else if (key === 'refinery') {
-    part(Box(2.6, 0.32, 1.7), 0x6d8796, 0, 0.2, 0.42, g);
-    part(Box(2.4, 0.05, 1.5), 0xd9c99a, 0, 0.37, 0.42, g);
-    for (let i = 0; i < 7; i++) part(Box(0.16, 0.08, 0.14), 0xbcae86, rr(-1, 1), 0.41, 0.42 + rr(-0.55, 0.55), g);
+    // the litter tray: a rounded plastic tray full of litter, and two silos
+    part(RBox(2.6, 0.34, 1.7, 0.1), SM(0x6d8796), 0, 0.2, 0.42, g);
+    part(RBox(2.4, 0.06, 1.5, 0.03), 0xd9c99a, 0, 0.37, 0.42, g);
+    part(RBox(2.62, 0.05, 1.72, 0.02), SM(0x7d97a6), 0, 0.37, 0.42, g).castShadow = false;
+    for (let i = 0; i < 7; i++) part(RBox(0.16, 0.08, 0.14, 0.03), 0xbcae86, rr(-1, 1), 0.41, 0.42 + rr(-0.55, 0.55), g);
     for (const s of [-1, 1]) {
-      part(Cyl(0.36, 0.36, 1.5, 10), 0x8b9096, s * 0.72, 0.8, -0.92, g);
-      part(Dome(0.36), 0x9aa0a4, s * 0.72, 1.55, -0.92, g);
-      part(Cyl(0.375, 0.375, 0.12, 10), T.accent, s * 0.72, 1.05, -0.92, g);
+      part(Cyl(0.36, 0.37, 1.5, 16), SM(0x8b9096), s * 0.72, 0.8, -0.92, g);
+      part(Dome(0.36), SM(0x9aa0a4), s * 0.72, 1.55, -0.92, g);
+      part(Cyl(0.375, 0.375, 0.12, 16), T.accent, s * 0.72, 1.05, -0.92, g);
+      part(Torus(0.37, 0.02), 0x6a6f74, s * 0.72, 0.4, -0.92, g).rotation.x = Math.PI / 2;
     }
-    const conv = part(Box(0.42, 0.05, 1.0), 0x2a2a28, 0, 0.75, -0.25, g); conv.rotation.x = 0.55;
-    part(Box(0.7, 0.04, 0.5), 0xd8b030, 0, 0.065, 1.35, g);
-    a.dockLight = new THREE.Mesh(Sph(0.05, 6, 4), glow(0x50ff60)); a.dockLight.position.set(0.4, 0.15, 1.35); g.add(a.dockLight);
+    const conv = part(RBox(0.42, 0.05, 1.0, 0.02), 0x2a2a28, 0, 0.75, -0.25, g); conv.rotation.x = 0.55;
+    cardBox(g, 0.5, 0.4, 0.4, -1.1, 0.25, -0.2, { tape: false });
+    label('TUNA', 0.35, g, -1.1, 0.25, 0.005, 0, '#e8dcc0', stamp);
+    part(RBox(0.7, 0.04, 0.5, 0.015), 0xd8b030, 0, 0.065, 1.35, g);
+    a.dockLight = new THREE.Mesh(Sph(0.05, 8, 6), glow(0x50ff60)); a.dockLight.position.set(0.4, 0.15, 1.35); g.add(a.dockLight);
   } else if (key === 'barracks') {
-    const tent = part(Box(1.55, 1.05, 1.05), 0x5a6436, 0, 0.0, 0.15, g); tent.rotation.x = Math.PI / 4;
-    part(Box(0.4, 0.45, 0.02), 0x1d1f16, 0, 0.23, 0.89, g);
+    // the Scratch Post Barracks: a cardboard box with a hole cut in the front, between two scratch posts
+    cardBox(g, 1.5, 0.95, 1.1, 0, 0.5, 0.15);
+    part(Cyl(0.22, 0.22, 0.03, 16), 0x1d1f16, 0, 0.42, 0.71, g).rotation.x = Math.PI / 2;
+    label('CATS', 0.6, g, -0.42, 0.72, 0.705, 0, '#e8dcc0', stamp, true);
+    part(Box(0.4, 0.06, 0.3), 0x6e5a44, 0.35, 1.0, 0.0, g);               // cushion on top
     for (const s of [-1, 1]) {
-      part(Cyl(0.12, 0.12, 1.45, 8), 0xc4a77a, s * 0.66, 0.73, -0.6, g);
-      for (let y = 0.2; y < 1.4; y += 0.25) part(Cyl(0.13, 0.13, 0.03, 8), 0xa88d60, s * 0.66, y, -0.6, g);
-      part(Box(0.46, 0.06, 0.46), 0x6e5a44, s * 0.66, 1.47, -0.6, g);
+      part(Cyl(0.12, 0.12, 1.45, 12), SM(0xc4a77a), s * 0.66, 0.73, -0.6, g);
+      for (let y = 0.2; y < 1.4; y += 0.22) part(Torus(0.12, 0.02), 0xa88d60, s * 0.66, y, -0.6, g).rotation.x = Math.PI / 2;
+      part(RBox(0.46, 0.07, 0.46, 0.03), 0x6e5a44, s * 0.66, 1.47, -0.6, g);
     }
     const sentry = makeCat(team, { weapon: 'rifle' }); sentry.group.position.set(0.66, 1.5, -0.6); sentry.group.scale.setScalar(0.85);
     g.add(sentry.group); a.sentry = sentry;
     const f = new THREE.Mesh(G('flag', () => new THREE.PlaneGeometry(0.55, 0.34)), flagMat(team));
-    part(Cyl(0.02, 0.02, 0.9, 4), 0x2a2a2a, -0.66, 1.9, -0.6, g);
+    part(Cyl(0.02, 0.02, 0.9, 5), 0x2a2a2a, -0.66, 1.9, -0.6, g);
     f.position.set(-0.38, 2.2, -0.6); g.add(f);
   } else if (key === 'factory') {
-    const hang = part(G('hangar', () => new THREE.CylinderGeometry(1.2, 1.2, 2.5, 10, 1, false, 0, Math.PI)), 0x6c7068, 0, 0.05, 0, g);
+    // Roomba Works: a cardboard tube hangar with a roller door
+    const hang = part(G('hangar', () => new THREE.CylinderGeometry(1.2, 1.2, 2.5, 14, 1, false, 0, Math.PI)), cardMat(), 0, 0.05, 0, g);
     hang.rotation.set(0, Math.PI / 2, Math.PI / 2);
     for (const z of [-0.8, 0, 0.8]) {
-      const r = part(G('rib', () => new THREE.CylinderGeometry(1.23, 1.23, 0.06, 10, 1, false, 0, Math.PI)), z === 0 ? T.accent : 0x52564f, 0, 0.05, z, g);
+      const r = part(G('rib', () => new THREE.CylinderGeometry(1.23, 1.23, 0.07, 14, 1, false, 0, Math.PI)), z === 0 ? T.accent : CARD_DARK, 0, 0.05, z, g);
       r.rotation.set(0, Math.PI / 2, Math.PI / 2);
     }
-    part(Box(1.3, 0.95, 0.05), 0x1c1d19, 0, 0.5, 1.26, g);
+    part(G('hangend', () => new THREE.CircleGeometry(1.2, 14, 0, Math.PI)), CARD_DARK, 0, 0.05, -1.25, g).rotation.set(0, Math.PI, 0);
+    part(RBox(1.3, 0.95, 0.05, 0.02), 0x1c1d19, 0, 0.5, 1.26, g);
+    for (let y = 0.1; y < 0.95; y += 0.14) part(Box(1.3, 0.02, 0.01), 0x33352f, 0, y, 1.29, g);
     for (let i = 0; i < 6; i++) part(Box(0.22, 0.07, 0.06), i % 2 ? 0x1c1c1c : 0xd8b030, -0.55 + i * 0.22, 1.02, 1.27, g);
-    part(Box(0.12, 1.7, 0.12), 0xc79a2a, 1.25, 0.85, -1.15, g);
-    part(Box(1.3, 0.1, 0.1), 0xc79a2a, 0.65, 1.7, -1.15, g);
+    label('WORKS', 0.8, g, 0.0, 1.45, 0.98, 0.0, '#e8dcc0', stamp, true).rotation.x = -0.55;
+    part(RBox(0.12, 1.7, 0.12, 0.03), 0xc79a2a, 1.25, 0.85, -1.15, g);
+    part(RBox(1.3, 0.1, 0.1, 0.03), 0xc79a2a, 0.65, 1.7, -1.15, g);
     part(Cyl(0.01, 0.01, 0.6, 4), 0x222222, 0.1, 1.4, -1.15, g);
+    part(Box(0.12, 0.08, 0.1), 0x333333, 0.1, 1.08, -1.15, g);
   } else if (key === 'turret') {
-    part(Cyl(0.42, 0.46, 0.26, 8), 0x8a7b55, 0, 0.13, 0, g);
-    part(Cyl(0.08, 0.1, 0.6, 6), 0x34362e, 0, 0.5, 0, g);
+    for (let i = 0; i < 8; i++) { const an = i / 8 * Math.PI * 2; const b = part(RBox(0.36, 0.17, 0.2, 0.06), i % 2 ? 0x8a7b55 : 0x7f7150, Math.sin(an) * 0.36, 0.09, Math.cos(an) * 0.36, g); b.rotation.y = an; }
+    part(Cyl(0.08, 0.1, 0.6, 8), 0x34362e, 0, 0.5, 0, g);
     const head = new THREE.Group(); head.position.set(0, 0.85, 0); g.add(head); a.head = head;
-    part(Box(0.22, 0.2, 0.26), T.gear, 0, 0, 0, head);
-    const p = part(Cyl(0.065, 0.065, 0.55, 8), 0xb0b4b8, 0, 0.04, 0.26, head); p.rotation.x = Math.PI / 2;
-    a.tip = new THREE.Mesh(Sph(0.045, 6, 4), glow(0xff2a1a)); a.tip.position.set(0, 0.04, 0.55); head.add(a.tip);
+    part(RBox(0.24, 0.2, 0.28, 0.05), SM(T.gear), 0, 0, 0, head);
+    const p = part(Cyl(0.065, 0.065, 0.55, 10), SM(0xb0b4b8), 0, 0.04, 0.26, head); p.rotation.x = Math.PI / 2;
+    part(Cyl(0.08, 0.08, 0.06, 10), 0x333333, 0, 0.04, 0.52, head).rotation.x = Math.PI / 2;
+    a.tip = new THREE.Mesh(Sph(0.045, 8, 6), glow(0xff2a1a)); a.tip.position.set(0, 0.04, 0.55); head.add(a.tip);
   }
   return a;
 }

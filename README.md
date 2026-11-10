@@ -86,7 +86,7 @@ grep -nE '^// [A-Z][A-Z ,:()-]{5,}$' index.html
 ```
 
 - Unit and structure stats live in `DEFS` and `WEAPONS` near the top.
-- Models are built from boxes and cylinders in the MODEL TOOLKIT section (`makeCat`, `makeRoomba`, `makeBuildingModel`). Sidebar icons are rendered from the same models when the page loads.
+- Models are built in the MODEL TOOLKIT section (`makeCat`, `makeRoomba`, `makeBuildingModel`) from rounded boxes (`RBox`), capsules (`Cap`), spheres and cylinders. Fur and plastic use the smooth-shaded `SM` material, gear and metal the flat-shaded `M`. Buildings are cardboard wherever they can be: `cardMat` is the corrugated texture, `cardBox` makes a taped-up box, and `label` prints a stamp (FRAGILE, THIS WAY UP) on a face. Sidebar icons are rendered from the same models when the page loads.
 - Each side has a team colour (`team` in `TEAM`): green for the tabbies, red for the Sphynx. It's on every unit's scarf, hat band or rim stripe, and on the ring under its feet, so keep it on anything new you add.
 - Units should be easy to tell apart from the game camera by shape alone: rifle cats have a helmet and a long rifle, grenadiers a wide hat and a drum on their back, tanks have tracks, harvesters a bin and a scoop. Check new art with `tests/unit_sheet.py`.
 - Getting about is in UNIT BEHAVIOUR: units follow an A* path, look ahead and pass oncoming units on their right, slow down behind slower ones, and ask idle friends in the way to step aside. A unit that stops getting closer for two seconds finds a way round the crowd, then backs off to one side. Run `tests/jam.py` after changing any of it.
