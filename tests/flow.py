@@ -68,7 +68,9 @@ with sync_playwright() as p:
     pg.mouse.down()
     pg.mouse.move(view['x'] + view['width'] - 10, view['y'] + view['height'] - 10, steps=5)
     pg.mouse.up()
-    pg.wait_for_timeout(250)
+    try: pg.wait_for_function('__game.selected.length > 0', timeout=3000)
+    except Exception: pass
+    pg.wait_for_timeout(300)
     nsel = pg.evaluate("document.querySelector('#selpanel h3').textContent")
     check('UNITS' in nsel, f'box select picked units ({nsel})')
     pg.mouse.click(view['x'] + view['width'] * 0.8, view['y'] + view['height'] * 0.25)

@@ -92,6 +92,7 @@ grep -nE '^// [A-Z][A-Z ,:()-]{5,}$' index.html
 - Getting about is in UNIT BEHAVIOUR: units follow an A* path, look ahead and pass oncoming units on their right, slow down behind slower ones, and ask idle friends in the way to step aside. A unit that stops getting closer for two seconds finds a way round the crowd, then backs off to one side. Run `tests/jam.py` after changing any of it.
 - Battle effects (muzzle flashes, hit flashes, sparks, wrecks, rubble, order lines) live in COMBAT, PROJECTILES AND EFFECTS.
 - The map is 96 x 96 tiles and one tile is one world unit.
+- The ground is one big plane with per-vertex colours (grass, dry patches, dirt, the road and its ruts, oily tuna stains) under a tiling detail texture drawn on a canvas at load (`groundDetailTex`). Grass tufts, pebbles, flowers and litter are instanced meshes scattered in `buildGroundProps`, and hidden under anything built. Every building gets a soft dark patch underneath (`groundShadow`). Lighting is a warm low sun with blue-grey shade and ACES tone mapping, so tweak `toneMappingExposure` before touching the colours.
 - Difficulty settings are in `DIFFICULTY`.
 
 ## Tests
